@@ -1,0 +1,7 @@
+{
+    "Auth": true,
+    "User": true,
+    "Inventory": true,
+    "Sales": true,
+    "RBAC": true
+}
