@@ -168,4 +168,27 @@ public function stockHistory($productId)
         ]);
     }
 
+   public function getCategories()
+{
+    try {
+        $categories = DB::table('inv_categories')
+            ->select('id', 'name', 'description', 'is_enabled')
+            ->orderBy('name', 'asc')
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'count' => $categories->count(),
+            'data' => $categories
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Failed to load categories',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
 }
