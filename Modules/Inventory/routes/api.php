@@ -19,6 +19,7 @@ Route::prefix('inventory')->group(function () {
 
     // Stock management
     Route::post('/{id}/adjust-stock', [InventoryController::class, 'adjustStock']);
+    Route::post('/inventory/{id}/add-stock', [InventoryController::class, 'addNewStock']);
 
 });
 

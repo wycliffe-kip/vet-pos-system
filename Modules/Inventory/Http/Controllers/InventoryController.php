@@ -133,6 +133,8 @@ class InventoryController extends Controller
     });
 }
 
+
+
 public function stockHistory($productId)
 {
     $history = DB::select("
@@ -189,6 +191,44 @@ public function stockHistory($productId)
         ], 500);
     }
 }
+
+public function addNewStock(Request $request, $id)
+{
+    $request->validate([
+        'quantity' => 'required|integer|min:1',
+        'reason' => 'nullable|string',
+        'user' => 'nullable|string'
+    ]);
+
+    $quantity = (int)$request->quantity;
+    $reason = $request->reason ?? 'New Stock Received';
+    $user = $request->user ?? 'Admin';
+
+    return DB::transaction(function () use ($id, $quantity, $reason, $user) {
+        $product = DB::selectOne("SELECT id, stock_quantity FROM inv_products WHERE id = ? FOR UPDATE", [$id]);
+        if (!$product) {
+            return response()->json(['status' => 'error', 'message' => 'Product not found'], 404);
+        }
+
+        $previousQty = (int)$product->stock_quantity;
+        $newQty = $previousQty + $quantity;
+
+        DB::update("UPDATE inv_products SET stock_quantity = ?, updated_at = NOW() WHERE id = ?", [$newQty, $id]);
+
+        // record stock history
+        DB::insert("
+            INSERT INTO inv_stock_history (product_id, delta, previous_quantity, new_quantity, reason, adjusted_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, NOW())
+        ", [$id, $quantity, $previousQty, $newQty, $reason, $user]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Stock added successfully',
+            'new_quantity' => $newQty
+        ]);
+    });
+}
+
 
 
 }
