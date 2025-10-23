@@ -35,4 +35,5 @@ Route::prefix('sales')->group(function () {
     Route::get('/reports/daily', [SalesController::class, 'dailyReport']);
     Route::get('/reports/monthly', [SalesController::class, 'monthlyReport']);
     Route::get('/reports/top-products', [SalesController::class, 'topProducts']);
+    Route::get('/reports/dashboard', [SalesController::class, 'dashboardReport']);
 });

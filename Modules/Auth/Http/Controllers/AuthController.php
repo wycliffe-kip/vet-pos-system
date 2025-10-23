@@ -141,12 +141,14 @@ class AuthController extends Controller
                 ]
             ]);
         } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             // Handle database errors
             return response()->json([
                 'status' => 'error',
                 'message' => 'Database error: ' . $e->getMessage()
             ], 500);
         } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Catch all other unexpected errors
             return response()->json([
                 'status' => 'error',

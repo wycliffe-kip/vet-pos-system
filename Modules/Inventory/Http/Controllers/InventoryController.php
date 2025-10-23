@@ -12,9 +12,10 @@ class InventoryController extends Controller
     public function index()
     {
         $products = DB::select("
-            SELECT p.*, c.name AS category_name
+            SELECT p.*, c.name AS category_name, u.name AS unit_name
             FROM inv_products p
             LEFT JOIN inv_categories c ON p.category_id = c.id
+            LEFT JOIN inv_product_units u ON p.unit_id = u.id
             ORDER BY p.created_at DESC
         ");
         return response()->json(['status' => 'success', 'data' => $products]);
@@ -23,9 +24,10 @@ class InventoryController extends Controller
     public function show($id)
     {
         $p = DB::selectOne("
-            SELECT p.*, c.name AS category_name 
+            SELECT p.*, c.name AS category_name, u.name AS unit_name 
             FROM inv_products p 
             LEFT JOIN inv_categories c ON p.category_id = c.id 
+            LEFT JOIN inv_product_units u ON p.unit_id = u.id
             WHERE p.id = ?
         ", [$id]);
 
@@ -40,6 +42,7 @@ class InventoryController extends Controller
     {
         $request->validate([
             'category_id' => 'nullable|integer',
+            'unit_id' => 'nullable|integer',
             'name' => 'required|string',
             'sku' => 'nullable|string',
             'unit_price' => 'required|numeric',
@@ -48,12 +51,13 @@ class InventoryController extends Controller
 
         $now = now();
         DB::insert("
-            INSERT INTO inv_products (category_id, name, description, unit_price, stock_quantity, is_enabled, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, TRUE, ?, ?)
+            INSERT INTO inv_products (category_id, name, description, unit_id, unit_price, stock_quantity, is_enabled, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, TRUE, ?, ?)
         ", [
             $request->category_id,
             $request->name,
             $request->description ?? null,
+            $request->unit_id,
             $request->unit_price,
             $request->stock_quantity,
             $now,
@@ -68,6 +72,7 @@ class InventoryController extends Controller
         $request->validate([
             'category_id' => 'nullable|integer',
             'name' => 'required|string',
+            'unit_id' => 'nullable|numeric',
             'unit_price' => 'required|numeric',
             'stock_quantity' => 'required|integer',
             'is_enabled' => 'nullable|boolean'
@@ -75,12 +80,13 @@ class InventoryController extends Controller
 
         DB::update("
             UPDATE inv_products 
-            SET category_id = ?, name = ?, description = ?, unit_price = ?, stock_quantity = ?, is_enabled = ?, updated_at = NOW()
+            SET category_id = ?, name = ?, description = ?, unit_id = ?, unit_price = ?, stock_quantity = ?, is_enabled = ?, updated_at = NOW()
             WHERE id = ?
         ", [
             $request->category_id,
             $request->name,
             $request->description ?? null,
+            $request->unit_id,
             $request->unit_price,
             $request->stock_quantity,
             $request->is_enabled ?? true,
@@ -97,47 +103,47 @@ class InventoryController extends Controller
     }
 
     // 🔹 Adjust stock atomically (increment/decrement) + record movement
- public function adjustStock(Request $request, $id)
-{
-    $request->validate([
-        'delta' => 'required|integer',
-        'reason' => 'nullable|string',
-        'user' => 'nullable|string'
-    ]);
+    public function adjustStock(Request $request, $id)
+    {
+        $request->validate([
+            'delta' => 'required|integer',
+            'reason' => 'nullable|string',
+            'user' => 'nullable|string'
+        ]);
 
-    $delta = (int)$request->delta;
-    $reason = $request->reason ?? 'Manual Adjustment';
-    $user = $request->user ?? 'Admin';
+        $delta = (int)$request->delta;
+        $reason = $request->reason ?? 'Manual Adjustment';
+        $user = $request->user ?? 'Admin';
 
-    return DB::transaction(function() use ($id, $delta, $reason, $user) {
-        $row = DB::selectOne("SELECT id, stock_quantity FROM inv_products WHERE id = ? FOR UPDATE", [$id]);
-        if (!$row) return response()->json(['status'=>'error','message'=>'Product not found'], 404);
+        return DB::transaction(function () use ($id, $delta, $reason, $user) {
+            $row = DB::selectOne("SELECT id, stock_quantity FROM inv_products WHERE id = ? FOR UPDATE", [$id]);
+            if (!$row) return response()->json(['status' => 'error', 'message' => 'Product not found'], 404);
 
-        $prevQty = (int)$row->stock_quantity;
-        $newQty = $prevQty + $delta;
-        if ($newQty < 0) return response()->json(['status'=>'error','message'=>'Insufficient stock'], 422);
+            $prevQty = (int)$row->stock_quantity;
+            $newQty = $prevQty + $delta;
+            if ($newQty < 0) return response()->json(['status' => 'error', 'message' => 'Insufficient stock'], 422);
 
-        DB::update("UPDATE inv_products SET stock_quantity = ?, updated_at = NOW() WHERE id = ?", [$newQty, $id]);
+            DB::update("UPDATE inv_products SET stock_quantity = ?, updated_at = NOW() WHERE id = ?", [$newQty, $id]);
 
-        // log to history
-        DB::insert("
+            // log to history
+            DB::insert("
             INSERT INTO inv_stock_history (product_id, delta, previous_quantity, new_quantity, reason, adjusted_by, created_at)
             VALUES (?, ?, ?, ?, ?, ?, NOW())
         ", [$id, $delta, $prevQty, $newQty, $reason, $user]);
 
-        return response()->json([
-            'status' => 'success',
-            'id' => $id,
-            'quantity' => $newQty
-        ]);
-    });
-}
+            return response()->json([
+                'status' => 'success',
+                'id' => $id,
+                'quantity' => $newQty
+            ]);
+        });
+    }
 
 
 
-public function stockHistory($productId)
-{
-    $history = DB::select("
+    public function stockHistory($productId)
+    {
+        $history = DB::select("
         SELECT h.*, p.name AS product_name
         FROM inv_stock_history h
         LEFT JOIN inv_products p ON h.product_id = p.id
@@ -145,8 +151,8 @@ public function stockHistory($productId)
         ORDER BY h.created_at DESC
     ", [$productId]);
 
-    return response()->json(['status'=>'success','data'=>$history]);
-}
+        return response()->json(['status' => 'success', 'data' => $history]);
+    }
 
 
     // 🔹 View low stock items
@@ -155,9 +161,10 @@ public function stockHistory($productId)
         $threshold = (int)($request->query('limit', 10));
 
         $products = DB::select("
-            SELECT p.*, c.name AS category_name
+            SELECT p.*, c.name AS category_name, u.name AS unit_name
             FROM inv_products p
             LEFT JOIN inv_categories c ON p.category_id = c.id
+            LEFT JOIN inv_product_units u ON p.unit_id = u.id
             WHERE p.stock_quantity < ?
             ORDER BY p.stock_quantity ASC
         ", [$threshold]);
@@ -170,65 +177,86 @@ public function stockHistory($productId)
         ]);
     }
 
-   public function getCategories()
-{
-    try {
-        $categories = DB::table('inv_categories')
-            ->select('id', 'name', 'description', 'is_enabled')
-            ->orderBy('name', 'asc')
-            ->get();
+    public function getCategories()
+    {
+        try {
+            $categories = DB::table('inv_categories')
+                ->select('id', 'name', 'description', 'is_enabled')
+                ->orderBy('name', 'asc')
+                ->get();
 
-        return response()->json([
-            'status' => 'success',
-            'count' => $categories->count(),
-            'data' => $categories
-        ], 200);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Failed to load categories',
-            'error' => $e->getMessage()
-        ], 500);
-    }
-}
-
-public function addNewStock(Request $request, $id)
-{
-    $request->validate([
-        'quantity' => 'required|integer|min:1',
-        'reason' => 'nullable|string',
-        'user' => 'nullable|string'
-    ]);
-
-    $quantity = (int)$request->quantity;
-    $reason = $request->reason ?? 'New Stock Received';
-    $user = $request->user ?? 'Admin';
-
-    return DB::transaction(function () use ($id, $quantity, $reason, $user) {
-        $product = DB::selectOne("SELECT id, stock_quantity FROM inv_products WHERE id = ? FOR UPDATE", [$id]);
-        if (!$product) {
-            return response()->json(['status' => 'error', 'message' => 'Product not found'], 404);
+            return response()->json([
+                'status' => 'success',
+                'count' => $categories->count(),
+                'data' => $categories
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to load categories',
+                'error' => $e->getMessage()
+            ], 500);
         }
+    }
 
-        $previousQty = (int)$product->stock_quantity;
-        $newQty = $previousQty + $quantity;
+    public function getUnits()
+    {
+        try {
+            $units = DB::table('inv_product_units')
+                ->select('id', 'name', 'description', 'is_enabled')
+                ->orderBy('name', 'asc')
+                ->get();
 
-        DB::update("UPDATE inv_products SET stock_quantity = ?, updated_at = NOW() WHERE id = ?", [$newQty, $id]);
+            return response()->json([
+                'status' => 'success',
+                'count' => $units->count(),
+                'data' => $units
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to load units',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 
-        // record stock history
-        DB::insert("
+    public function addNewStock(Request $request, $id)
+    {
+        $request->validate([
+            'quantity' => 'required|integer|min:1',
+            'reason' => 'nullable|string',
+            'user' => 'nullable|string'
+        ]);
+
+        $quantity = (int)$request->quantity;
+        $reason = $request->reason ?? 'New Stock Received';
+        $user = $request->user ?? 'Admin';
+
+        return DB::transaction(function () use ($id, $quantity, $reason, $user) {
+            $product = DB::selectOne("SELECT id, stock_quantity FROM inv_products WHERE id = ? FOR UPDATE", [$id]);
+            if (!$product) {
+                return response()->json(['status' => 'error', 'message' => 'Product not found'], 404);
+            }
+
+            $previousQty = (int)$product->stock_quantity;
+            $newQty = $previousQty + $quantity;
+
+            DB::update("UPDATE inv_products SET stock_quantity = ?, updated_at = NOW() WHERE id = ?", [$newQty, $id]);
+
+            // record stock history
+            DB::insert("
             INSERT INTO inv_stock_history (product_id, delta, previous_quantity, new_quantity, reason, adjusted_by, created_at)
             VALUES (?, ?, ?, ?, ?, ?, NOW())
         ", [$id, $quantity, $previousQty, $newQty, $reason, $user]);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Stock added successfully',
-            'new_quantity' => $newQty
-        ]);
-    });
-}
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Stock added successfully',
+                'new_quantity' => $newQty
+            ]);
+        });
+    }
 
-
-
+    
 }

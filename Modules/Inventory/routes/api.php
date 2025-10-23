@@ -5,6 +5,7 @@ use Modules\Inventory\Http\Controllers\InventoryController;
 
 Route::prefix('inventory')->group(function () {
     Route::get('/categories', [InventoryController::class, 'getCategories']);
+    Route::get('/units', [InventoryController::class, 'getUnits']);
     Route::get('/', [InventoryController::class, 'index']);
     Route::post('/', [InventoryController::class, 'store']);
     
