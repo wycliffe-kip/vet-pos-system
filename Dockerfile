@@ -1,55 +1,50 @@
-# Use PHP 8.2 with Apache
+# ==========================
+# 1️⃣ Stage 1: Build Angular frontend
+# ==========================
+FROM node:18 AS build-frontend
+
+WORKDIR /app
+
+# Copy Angular source code
+COPY public/view/vet-pos-dev/ ./vet-pos-dev/
+
+# Move into Angular project
+WORKDIR /app/vet-pos-dev
+
+# Install dependencies and build Angular
+RUN npm install
+RUN npm run build --verbose
+
+# ==========================
+# 2️⃣ Stage 2: Laravel + Apache
+# ==========================
 FROM php:8.2-apache
 
-# Install dependencies
+# Install necessary PHP extensions
 RUN apt-get update && apt-get install -y \
-    libpq-dev zip unzip git curl libpng-dev libonig-dev libxml2-dev nodejs npm && \
-    rm -rf /var/lib/apt/lists/*
+    zip unzip git curl libpng-dev libonig-dev libxml2-dev \
+    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
 
-# Enable PHP extensions
-RUN docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd
-
-# Enable Apache rewrite
+# Enable Apache rewrite module
 RUN a2enmod rewrite
-
-# Fix Apache ServerName warning
-RUN echo "ServerName vet-pos-system.onrender.com" >> /etc/apache2/apache2.conf
 
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy entire Laravel project
-COPY . /var/www/html
+# Copy Laravel backend files
+COPY . .
 
-# Install composer dependencies
-RUN curl -sS https://getcomposer.org/installer | php && \
-    php composer.phar install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+# Copy built Angular app into Laravel's public folder
+COPY --from=build-frontend /app/vet-pos-dev/dist/vet-pos-dev/ ./public/
 
-# Build Angular frontend (inside public/view/vet-pos-dev)
-RUN cd public/view/vet-pos-dev && npm install && npm run build && \
-    cp -r dist/* ../../
+# Fix permissions for Laravel storage and cache
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Configure Apache VirtualHost
-RUN rm /etc/apache2/sites-enabled/000-default.conf && \
-    echo '<VirtualHost *:80>\n\
-    ServerAdmin webmaster@localhost\n\
-    ServerName vet-pos-system.onrender.com\n\
-    DocumentRoot /var/www/html/public\n\
-    <Directory /var/www/html/public>\n\
-        AllowOverride All\n\
-        Require all granted\n\
-    </Directory>\n\
-    ErrorLog ${APACHE_LOG_DIR}/vetpos-error.log\n\
-    CustomLog ${APACHE_LOG_DIR}/vetpos-access.log combined\n\
-</VirtualHost>' > /etc/apache2/sites-available/vetpos.conf && \
-    a2ensite vetpos.conf
+# Copy Apache config (if exists)
+COPY ./docker/vetpos.conf /etc/apache2/sites-available/000-default.conf
 
-# Set permissions for Laravel
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
-    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
-
-# Expose web port
-EXPOSE 80
+# Expose port 84
+EXPOSE 84
 
 # Start Apache
 CMD ["apache2-foreground"]
