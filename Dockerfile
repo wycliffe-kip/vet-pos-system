@@ -1,55 +1,48 @@
-# ==========================
-# 1️⃣ Stage 1: Build Angular frontend
-# ==========================
-FROM node:18 AS build-frontend
+# ------------------------------
+# Stage 1: Build Angular Frontend
+# ------------------------------
+FROM node:20 as frontend-builder
 
+# Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json first
-COPY public/view/vet-pos-dev/package*.json ./vet-pos-dev/
-
-# Move into Angular project
+# Copy Angular project
+COPY public/view/vet-pos-dev/package.json public/view/vet-pos-dev/package-lock.json ./vet-pos-dev/
 WORKDIR /app/vet-pos-dev
 
-# Install dependencies
+# Install dependencies and build Angular
 RUN npm install
+RUN npm run build -- --configuration production
 
-# Copy rest of Angular source code
-COPY public/view/vet-pos-dev/ ./
-
-# Build Angular
-RUN npm run build --verbose
-
-# ==========================
-# 2️⃣ Stage 2: Laravel + Apache
-# ==========================
+# ------------------------------
+# Stage 2: Laravel Backend
+# ------------------------------
 FROM php:8.2-apache
 
-# Install necessary PHP extensions
-RUN apt-get update && apt-get install -y \
-    zip unzip git curl libpng-dev libonig-dev libxml2-dev \
-    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
-
-# Enable Apache rewrite module
+# Enable Apache mod_rewrite
 RUN a2enmod rewrite
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    zip unzip git curl libpng-dev libonig-dev libxml2-dev libpq-dev \
+    && docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd \
+    && apt-get clean
 
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy Laravel project files
+# Copy Laravel backend
 COPY . .
 
-# Copy built Angular files into Laravel's public folder
-COPY --from=build-frontend /app/vet-pos-dev/dist/vet-pos-dev/ ./public/
+# Copy Angular build from stage 1 to public folder
+COPY --from=frontend-builder /app/vet-pos-dev/dist/vet-pos-dev ./public/dist
 
-# Fix permissions for Laravel storage and cache
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html/storage
 
-# Replace Apache default config with your app's
-COPY ./docker/vetpos.conf /etc/apache2/sites-available/000-default.conf
+# Expose port (Render automatically sets $PORT)
+EXPOSE 10000
 
-# Expose port 84
-EXPOSE 84
-
-# Start Apache
-CMD ["apache2-foreground"]
+# Run Laravel server
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]

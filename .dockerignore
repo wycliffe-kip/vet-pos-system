@@ -1,24 +1,5 @@
-# Node and Angular build artifacts
+node_modules
 public/view/vet-pos-dev/node_modules
-public/view/vet-pos-dev/dist
-public/view/vet-pos-dev/.angular
-public/view/vet-pos-dev/.vite
-
-# Laravel vendor folder (we'll copy it during build or mount in Render)
 vendor
-
-# System files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-storage/logs/*.log
-
-# Temporary files
-*.tmp
-*.swp
-
-# Git
+.env
 .git
-.gitignore
