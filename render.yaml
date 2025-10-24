@@ -1,22 +1,27 @@
+# ========================================
+# Render Blueprint for Laravel + Angular
+# ========================================
+
 services:
   - type: web
     name: vet-pos-system
     env: docker
     plan: free
     region: oregon
-    branch: main
-    dockerfilePath: ./Dockerfile
+
+    # Optional: if your Dockerfile is not at repo root
+    # rootDir: ./
+
+    # Render automatically uses Dockerfile at root
+
+    # Port to expose from container
     envVars:
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
         value: false
       - key: APP_KEY
-        generateValue: true
-      - key: APP_URL
-        value: https://vet-pos-system.onrender.com
-
-      # --- Database connection (linked to Render PostgreSQL service) ---
+        sync: false           # Add this manually in Render Dashboard
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
@@ -39,26 +44,19 @@ services:
         fromDatabase:
           name: vet-pos-db
           property: password
-
-      # --- Session / Security ---
+      - key: APP_URL
+        value: https://vet-pos-system.onrender.com
+      - key: LOG_CHANNEL
+        value: stack
       - key: SESSION_DRIVER
-        value: database
-      - key: SESSION_LIFETIME
-        value: 120
-      - key: SANCTUM_STATEFUL_DOMAINS
-        value: vet-pos-system.onrender.com
-      - key: SESSION_DOMAIN
-        value: vet-pos-system.onrender.com
-
-      # --- Other defaults ---
+        value: file
       - key: CACHE_DRIVER
         value: file
       - key: QUEUE_CONNECTION
         value: sync
-      - key: LOG_CHANNEL
-        value: stack
 
 databases:
   - name: vet-pos-db
+    databaseName: vetpos
     plan: free
     region: oregon
