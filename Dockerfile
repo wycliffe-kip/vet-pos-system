@@ -5,15 +5,16 @@ FROM node:18 AS build-frontend
 
 WORKDIR /app
 
-# Copy Angular source code
+# Copy Angular project files (must include package.json & angular.json)
 COPY public/view/vet-pos-dev/ ./vet-pos-dev/
 
-# Move into Angular project
 WORKDIR /app/vet-pos-dev
 
-# Install dependencies and build Angular
+# Install dependencies
 RUN npm install
-RUN npm run build --verbose
+
+# Build Angular for production
+RUN npm run build --configuration production
 
 # ==========================
 # 2️⃣ Stage 2: Laravel + Apache
@@ -23,7 +24,8 @@ FROM php:8.2-apache
 # Install necessary PHP extensions
 RUN apt-get update && apt-get install -y \
     zip unzip git curl libpng-dev libonig-dev libxml2-dev \
-    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
+    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Enable Apache rewrite module
 RUN a2enmod rewrite
@@ -31,20 +33,20 @@ RUN a2enmod rewrite
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy Laravel backend files
+# Copy Laravel project files
 COPY . .
 
-# Copy built Angular app into Laravel's public folder
+# Copy built Angular files into Laravel's public folder
 COPY --from=build-frontend /app/vet-pos-dev/dist/vet-pos-dev/ ./public/
 
 # Fix permissions for Laravel storage and cache
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Copy Apache config (if exists)
+# Replace Apache default config with your app's config
 COPY ./docker/vetpos.conf /etc/apache2/sites-available/000-default.conf
 
-# Expose port 84
-EXPOSE 84
+# Expose port 80 for Render deployment (or change to 84 if needed)
+EXPOSE 80
 
 # Start Apache
 CMD ["apache2-foreground"]
