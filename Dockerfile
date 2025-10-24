@@ -3,22 +3,21 @@
 # ==========================
 FROM node:18 AS build-frontend
 
-# Set working directory
 WORKDIR /app
 
-# Copy only Angular project files
-COPY public/view/vet-pos-dev/package.json public/view/vet-pos-dev/package-lock.json ./vet-pos-dev/
+# Copy package.json and package-lock.json first
+COPY public/view/vet-pos-dev/package*.json ./vet-pos-dev/
 
 # Move into Angular project
 WORKDIR /app/vet-pos-dev
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
-# Copy the rest of Angular source code
-COPY public/view/vet-pos-dev/ ./ 
+# Copy rest of Angular source code
+COPY public/view/vet-pos-dev/ ./
 
-# Build Angular for production
+# Build Angular
 RUN npm run build --verbose
 
 # ==========================
@@ -49,8 +48,8 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 # Replace Apache default config with your app's
 COPY ./docker/vetpos.conf /etc/apache2/sites-available/000-default.conf
 
-# Expose port 80 (or 84 if needed)
-EXPOSE 80
+# Expose port 84
+EXPOSE 84
 
 # Start Apache
 CMD ["apache2-foreground"]
