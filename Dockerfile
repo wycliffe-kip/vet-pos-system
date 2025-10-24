@@ -1,51 +1,72 @@
-# Use PHP with Apache
+# ===============================
+# 1️⃣ Base image with PHP + Apache
+# ===============================
 FROM php:8.2-apache
 
-# Set working directory
-WORKDIR /var/www/html
-
-# Install system dependencies
+# ===============================
+# 2️⃣ Install required system packages
+# ===============================
 RUN apt-get update && apt-get install -y \
-    libpq-dev zip unzip git curl libpng-dev libonig-dev libxml2-dev \
-    nodejs npm && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    libpq-dev zip unzip git curl \
+    libpng-dev libonig-dev libxml2-dev \
+    nodejs npm
 
 # Enable required PHP extensions
 RUN docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd
 
-# Enable Apache rewrite module
+# Enable Apache rewrite for Laravel routes
 RUN a2enmod rewrite
 
-# Copy the Laravel project files
-COPY . /var/www/html
-
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php && \
-    mv composer.phar /usr/local/bin/composer
-
-# Install Laravel dependencies (no dev packages)
-RUN composer install --no-dev --optimize-autoloader
-
-# Build Angular frontend inside the nested folder
-WORKDIR /var/www/html/public/view/vet-pos-dev
-RUN npm install && npm run build
-
-# Return to Laravel root directory
+# ===============================
+# 3️⃣ Set working directory
+# ===============================
 WORKDIR /var/www/html
 
-# Ensure correct permissions for Laravel storage
-RUN chown -R www-data:www-data storage bootstrap/cache && \
-    chmod -R 775 storage bootstrap/cache
+# ===============================
+# 4️⃣ Copy project files
+# ===============================
+COPY . /var/www/html
 
-# Apache configuration for Laravel
-RUN echo '<Directory /var/www/html/public>\n\
-    AllowOverride All\n\
-    Require all granted\n\
-</Directory>' > /etc/apache2/conf-available/laravel.conf && \
-    a2enconf laravel
+# ===============================
+# 5️⃣ Install Composer dependencies
+# ===============================
+RUN curl -sS https://getcomposer.org/installer | php && \
+    php composer.phar install --no-dev --optimize-autoloader
 
-# Expose port 80
+# ===============================
+# 6️⃣ Build Angular frontend (inside public/)
+# ===============================
+RUN cd public && npm install && npm run build
+
+# ===============================
+# 7️⃣ Configure Apache VirtualHost
+# ===============================
+RUN rm /etc/apache2/sites-enabled/000-default.conf && \
+    echo '<VirtualHost *:80>\n\
+    ServerAdmin webmaster@localhost\n\
+    DocumentRoot /var/www/html/public\n\
+    <Directory /var/www/html/public>\n\
+        AllowOverride All\n\
+        Require all granted\n\
+    </Directory>\n\
+    ErrorLog ${APACHE_LOG_DIR}/vetpos-error.log\n\
+    CustomLog ${APACHE_LOG_DIR}/vetpos-access.log combined\n\
+</VirtualHost>' > /etc/apache2/sites-available/vetpos.conf && \
+    a2ensite vetpos.conf && \
+    a2enmod rewrite
+
+# ===============================
+# 8️⃣ Set permissions for Laravel
+# ===============================
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
+    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# ===============================
+# 9️⃣ Expose port 80
+# ===============================
 EXPOSE 80
 
-# Start Apache
+# ===============================
+# 🔟 Start Apache
+# ===============================
 CMD ["apache2-foreground"]
