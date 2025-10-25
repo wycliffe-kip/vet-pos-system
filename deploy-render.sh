@@ -10,7 +10,6 @@ REPO="git@github.com:wycliffe-kip/vet-pos-system.git"
 BRANCH="main"
 
 # Render service info
-RENDER_APP_NAME="vet-pos-system-1" # your Render service name
 RENDER_APP_URL="https://vet-pos-system-1.onrender.com"
 
 # Render DB info
@@ -34,7 +33,7 @@ echo "🔹 Checking for local changes..."
 git add .
 git commit -m "Deploy Laravel + Angular SPA to Render" || echo "No changes to commit."
 
-echo "🔹 Pushing to GitHub..."
+echo "🔹 Pushing code to GitHub..."
 git push $REPO $BRANCH
 echo "✅ Code pushed to GitHub"
 
@@ -46,25 +45,23 @@ PGPASSWORD=$LOCAL_DB_PASS pg_dump -U $LOCAL_DB_USER -h $LOCAL_DB_HOST -p $LOCAL_
 echo "✅ Local DB exported to vetpos_local.sql"
 
 # ----------------------------
-# 3️⃣ Upload DB to Render Shell
+# 3️⃣ Instructions for Render DB import
 # ----------------------------
-# Check if Render CLI is installed
-if ! command -v render &> /dev/null; then
-    echo "❌ Render CLI not found. Install it first: https://render.com/docs/cli"
-    exit 1
-fi
-
 echo ""
-echo "🔹 Uploading local SQL dump to Render Shell..."
-render cp vetpos_local.sql $RENDER_APP_NAME:~/vetpos_local.sql
-echo "✅ vetpos_local.sql uploaded"
-
+echo "🔹 MANUAL STEP: Import local DB to Render"
+echo "Free Render CLI cannot upload SQL automatically."
+echo "Do the following manually:"
 echo ""
-echo "🔹 Opening Render Shell to import database..."
-echo "Inside Render Shell, run this command to import:"
-echo "PGPASSWORD=$RENDER_DB_PASS psql -U $RENDER_DB_USER -h $RENDER_DB_HOST -d $RENDER_DB_NAME -f ~/vetpos_local.sql"
+echo "1️⃣ Login to Render:"
+echo "   render login"
 echo ""
-render shell $RENDER_APP_NAME
+echo "2️⃣ Open Render Shell for your service:"
+echo "   render shell vet-pos-system-1"
+echo ""
+echo "3️⃣ Inside the shell, run:"
+echo "   PGPASSWORD=$RENDER_DB_PASS psql -U $RENDER_DB_USER -h $RENDER_DB_HOST -d $RENDER_DB_NAME -f ~/vetpos_local.sql"
+echo ""
+echo "✅ Your DB import will complete manually"
 
 # ----------------------------
 # 4️⃣ Reminder for Render env vars
@@ -85,5 +82,6 @@ echo "SESSION_DRIVER=database"
 echo "SESSION_DOMAIN=.vet-pos-system-1.onrender.com"
 echo "SANCTUM_STATEFUL_DOMAINS=vet-pos-system-1.onrender.com"
 
+echo ""
 echo "✅ Deployment steps complete!"
 echo "Visit $RENDER_APP_URL to check your application."
