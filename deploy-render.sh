@@ -10,6 +10,7 @@ REPO="git@github.com:wycliffe-kip/vet-pos-system.git"
 BRANCH="main"
 
 # Render service info
+RENDER_APP_NAME="vet-pos-system-1"
 RENDER_APP_URL="https://vet-pos-system-1.onrender.com"
 
 # Render DB info
@@ -33,7 +34,7 @@ echo "🔹 Checking for local changes..."
 git add .
 git commit -m "Deploy Laravel + Angular SPA to Render" || echo "No changes to commit."
 
-echo "🔹 Pushing to GitHub..."
+echo "🔹 Pushing code to GitHub..."
 git push $REPO $BRANCH
 echo "✅ Code pushed to GitHub"
 
@@ -45,21 +46,26 @@ PGPASSWORD=$LOCAL_DB_PASS pg_dump -U $LOCAL_DB_USER -h $LOCAL_DB_HOST -p $LOCAL_
 echo "✅ Local DB exported to vetpos_local.sql"
 
 # ----------------------------
-# 3️⃣ Manual DB import instructions
+# 3️⃣ Instructions for Render DB import
 # ----------------------------
 echo ""
-echo "⚠️ Render free tier cannot upload SQL automatically."
-echo "Do the following manually to import your DB:"
+echo "🔹 MANUAL STEP: Import local DB to Render"
+echo "Free Render instances do NOT support Shell/SSH, so you must import manually."
 echo ""
-echo "1️⃣ Use pgAdmin or psql from your local machine:"
-echo "   PGPASSWORD=$RENDER_DB_PASS psql -U $RENDER_DB_USER -h $RENDER_DB_HOST -d $RENDER_DB_NAME -f vetpos_local.sql"
+echo "1️⃣ Open pgAdmin, DBeaver, or any PostgreSQL client."
+echo "2️⃣ Connect to your Render DB using:"
+echo "   Host: $RENDER_DB_HOST"
+echo "   Port: $RENDER_DB_PORT"
+echo "   Database: $RENDER_DB_NAME"
+echo "   User: $RENDER_DB_USER"
+echo "   Password: $RENDER_DB_PASS"
+echo "3️⃣ Import the SQL dump file 'vetpos_local.sql'"
 echo ""
-echo "✅ DB import instructions ready"
+echo "✅ DB import will complete manually"
 
 # ----------------------------
-# 4️⃣ Reminder for Render env vars
+# 4️⃣ Reminder for Render environment variables
 # ----------------------------
-echo ""
 echo "🔹 Make sure these environment variables are set in Render Dashboard:"
 echo "APP_ENV=production"
 echo "APP_DEBUG=false"
@@ -74,6 +80,14 @@ echo "DB_PASSWORD=$RENDER_DB_PASS"
 echo "SESSION_DRIVER=database"
 echo "SESSION_DOMAIN=.vet-pos-system.onrender.com"
 echo "SANCTUM_STATEFUL_DOMAINS=vet-pos-system-1.onrender.com"
+echo "CACHE_DRIVER=file"
+echo "QUEUE_CONNECTION=database"
+echo "FILESYSTEM_DISK=local"
+echo "REDIS_HOST=127.0.0.1"
+echo "REDIS_PORT=6379"
+echo "MAIL_MAILER=log"
+echo "MAIL_FROM_ADDRESS=hello@example.com"
+echo "MAIL_FROM_NAME=Laravel"
 
 echo ""
 echo "✅ Deployment steps complete!"
