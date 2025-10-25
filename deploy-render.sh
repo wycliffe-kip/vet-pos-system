@@ -10,6 +10,7 @@ REPO="git@github.com:wycliffe-kip/vet-pos-system.git"
 BRANCH="main"
 
 # Render service info
+RENDER_APP_NAME="vet-pos-system-1" # your Render service name
 RENDER_APP_URL="https://vet-pos-system-1.onrender.com"
 
 # Render DB info
@@ -45,20 +46,28 @@ PGPASSWORD=$LOCAL_DB_PASS pg_dump -U $LOCAL_DB_USER -h $LOCAL_DB_HOST -p $LOCAL_
 echo "✅ Local DB exported to vetpos_local.sql"
 
 # ----------------------------
-# 3️⃣ Instructions for Render Free DB import
+# 3️⃣ Open Render Shell for DB import
 # ----------------------------
-echo "🔹 To import your local DB to Render Free tier:"
-echo "1. Go to Render Dashboard → Your App → Shell"
-echo "2. Upload or paste the vetpos_local.sql file inside the shell"
-echo "3. Run this command inside Render Shell:"
+echo ""
+echo "🔹 Opening Render Shell for $RENDER_APP_NAME..."
+echo "⚠️ Once inside the shell, run the following command to import your DB:"
 echo ""
 echo "PGPASSWORD=$RENDER_DB_PASS psql -U $RENDER_DB_USER -h $RENDER_DB_HOST -d $RENDER_DB_NAME -f vetpos_local.sql"
 echo ""
-echo "⚠️ Note: Free Render databases are not publicly accessible. You must run the above command inside Render Shell."
+
+# Check if Render CLI is installed
+if ! command -v render &> /dev/null; then
+    echo "❌ Render CLI not found. Install it first: https://render.com/docs/cli"
+    exit 1
+fi
+
+# Open the Render Shell
+render shell $RENDER_APP_NAME
 
 # ----------------------------
 # 4️⃣ Reminder for Render env vars
 # ----------------------------
+echo ""
 echo "🔹 Make sure these environment variables are set in Render Dashboard:"
 echo "APP_ENV=production"
 echo "APP_DEBUG=false"
