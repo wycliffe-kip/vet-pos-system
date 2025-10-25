@@ -32,7 +32,7 @@ RUN php artisan package:discover --ansi
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/000-default.conf
+RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/vetpos.conf
 
-EXPOSE 80
+EXPOSE 84
 CMD ["apache2-foreground"]
