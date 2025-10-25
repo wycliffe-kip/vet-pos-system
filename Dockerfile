@@ -13,26 +13,17 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 RUN a2enmod rewrite
 WORKDIR /var/www/html
 
-# Copy only composer files first (for caching)
-COPY composer.json composer.lock ./
-
-# Install dependencies without running scripts
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress --no-scripts
-
-# Copy the rest of the application
+# Copy entire application
 COPY . .
 
-# Now run the post-install scripts manually
-RUN composer run-script post-autoload-dump
-
-# Or run the specific artisan command
-RUN php artisan package:discover --ansi
+# Install without running any scripts
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress --no-scripts
 
 # Set permissions
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/vetpos.conf
+RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/000-default.conf
 
-EXPOSE 84
+EXPOSE 80
 CMD ["apache2-foreground"]
