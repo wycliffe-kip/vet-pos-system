@@ -1,5 +1,23 @@
+# Ignore node_modules
 node_modules
 public/view/vet-pos-dev/node_modules
+public/view/vet-pos-dev/dist
+
+# Ignore vendor folder (will be installed in Docker)
 vendor
+
+# Ignore environment files (except .env.production if you use it locally)
 .env
+.env.local
+.env.testing
+.env.development
+
+# Ignore git files
 .git
+.gitignore
+
+# Ignore OS / IDE files
+*.log
+*.DS_Store
+.idea
+.vscode
