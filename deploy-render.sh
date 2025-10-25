@@ -46,22 +46,24 @@ PGPASSWORD=$LOCAL_DB_PASS pg_dump -U $LOCAL_DB_USER -h $LOCAL_DB_HOST -p $LOCAL_
 echo "✅ Local DB exported to vetpos_local.sql"
 
 # ----------------------------
-# 3️⃣ Open Render Shell for DB import
+# 3️⃣ Upload DB to Render Shell
 # ----------------------------
-echo ""
-echo "🔹 Opening Render Shell for $RENDER_APP_NAME..."
-echo "⚠️ Once inside the shell, run the following command to import your DB:"
-echo ""
-echo "PGPASSWORD=$RENDER_DB_PASS psql -U $RENDER_DB_USER -h $RENDER_DB_HOST -d $RENDER_DB_NAME -f vetpos_local.sql"
-echo ""
-
 # Check if Render CLI is installed
 if ! command -v render &> /dev/null; then
     echo "❌ Render CLI not found. Install it first: https://render.com/docs/cli"
     exit 1
 fi
 
-# Open the Render Shell
+echo ""
+echo "🔹 Uploading local SQL dump to Render Shell..."
+render cp vetpos_local.sql $RENDER_APP_NAME:~/vetpos_local.sql
+echo "✅ vetpos_local.sql uploaded"
+
+echo ""
+echo "🔹 Opening Render Shell to import database..."
+echo "Inside Render Shell, run this command to import:"
+echo "PGPASSWORD=$RENDER_DB_PASS psql -U $RENDER_DB_USER -h $RENDER_DB_HOST -d $RENDER_DB_NAME -f ~/vetpos_local.sql"
+echo ""
 render shell $RENDER_APP_NAME
 
 # ----------------------------
