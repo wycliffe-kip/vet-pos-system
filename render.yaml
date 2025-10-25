@@ -1,62 +1,45 @@
-# ========================================
-# Render Blueprint for Laravel + Angular
-# ========================================
-
 services:
   - type: web
     name: vet-pos-system
-    env: docker
+    env: php
     plan: free
     region: oregon
+    buildCommand: |
+      # Install Laravel dependencies
+      composer install --no-dev --optimize-autoloader
 
-    # Optional: if your Dockerfile is not at repo root
-    # rootDir: ./
-
-    # Render automatically uses Dockerfile at root
-
-    # Port to expose from container
+      # Run database migrations
+      php artisan migrate --force
+    startCommand: php artisan serve --host=0.0.0.0 --port=$PORT
     envVars:
+      # Laravel Environment
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
-        value: false
+        value: 'false'
       - key: APP_KEY
-        sync: false           # Add this manually in Render Dashboard
+        value: base64:/rEu/aOMyU5CCAYjx60+5PFA2KaVSQPIX/NkEZTNtfs=
+      - key: APP_URL
+        value: https://vet-pos-system.onrender.com
+
+      # Database (PostgreSQL)
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
-        fromDatabase:
-          name: vet-pos-db
-          property: host
+        value: <POSTGRES_HOST>
       - key: DB_PORT
-        fromDatabase:
-          name: vet-pos-db
-          property: port
+        value: '5432'
       - key: DB_DATABASE
-        fromDatabase:
-          name: vet-pos-db
-          property: database
+        value: <POSTGRES_DB>
       - key: DB_USERNAME
-        fromDatabase:
-          name: vet-pos-db
-          property: user
+        value: <POSTGRES_USER>
       - key: DB_PASSWORD
-        fromDatabase:
-          name: vet-pos-db
-          property: password
-      - key: APP_URL
-        value: https://vet-pos-system.onrender.com
-      - key: LOG_CHANNEL
-        value: stack
-      - key: SESSION_DRIVER
-        value: file
-      - key: CACHE_DRIVER
-        value: file
-      - key: QUEUE_CONNECTION
-        value: sync
+        value: <POSTGRES_PASSWORD>
 
-databases:
-  - name: vet-pos-db
-    databaseName: vetpos
-    plan: free
-    region: oregon
+      # Session & Sanctum (SPA auth)
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_DOMAIN
+        value: .vet-pos-system.onrender.com
+      - key: SANCTUM_STATEFUL_DOMAINS
+        value: vet-pos-system.onrender.com
