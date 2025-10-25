@@ -1,44 +1,53 @@
-# Use official PHP 8.2 + Apache image
+# ----------------------------
+# 1️⃣ Build Stage: Node for Angular
+# ----------------------------
+FROM node:20 AS frontend-builder
+
+WORKDIR /app
+
+# Copy only package files for caching
+COPY public/view/vet-pos-dev/package.json public/view/vet-pos-dev/package-lock.json ./
+
+# Install Angular dependencies
+RUN npm install
+
+# Copy Angular source
+COPY public/view/vet-pos-dev/ ./
+
+# Build Angular for production
+RUN npm run build -- --configuration production
+
+# ----------------------------
+# 2️⃣ Laravel + Apache Stage
+# ----------------------------
 FROM php:8.2-apache
 
-# ----------------------------
-# 1️⃣ Enable Apache mods
-# ----------------------------
+# Enable Apache mods
 RUN a2enmod rewrite headers
 
-# ----------------------------
-# 2️⃣ Set working directory
-# ----------------------------
+# Set working directory
 WORKDIR /var/www/html
 
-# ----------------------------
-# 3️⃣ Copy Laravel app
-# ----------------------------
+# Copy Laravel app
 COPY . .
 
-# ----------------------------
-# 4️⃣ Permissions for storage & cache
-# ----------------------------
-RUN chown -R www-data:www-data storage bootstrap/cache
-RUN chmod -R 775 storage bootstrap/cache
+# Copy Angular build from frontend-builder
+COPY --from=frontend-builder /app/dist /var/www/html/public/resources
 
-# ----------------------------
-# 5️⃣ Copy Apache config for SPA routing
-# ----------------------------
-COPY docker/vhost.conf /etc/apache2/sites-available/000-default.conf
+# Copy Apache vhost
+COPY docker/vetpos.conf /etc/apache2/sites-available/000-default.conf
 
-# ----------------------------
-# 6️⃣ Install PHP extensions (PostgreSQL, etc.)
-# ----------------------------
+# Install PHP extensions
 RUN apt-get update && apt-get install -y libpq-dev \
     && docker-php-ext-install pdo pdo_pgsql
 
-# ----------------------------
-# 7️⃣ Expose port
-# ----------------------------
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Expose port
 EXPOSE 80
 
-# ----------------------------
-# 8️⃣ Start Apache
-# ----------------------------
+# Start Apache
 CMD ["apache2-foreground"]
