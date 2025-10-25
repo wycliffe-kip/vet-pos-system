@@ -1,46 +1,44 @@
-# Stage 1: Build Angular frontend
-FROM node:20 AS frontend-builder
-
-# Set working directory
-WORKDIR /app/vet-pos-dev
-
-# Copy only package files first (for caching)
-COPY public/view/vet-pos-dev/package.json public/view/vet-pos-dev/package-lock.json ./
-
-# Install Angular dependencies
-RUN npm install
-
-# Copy the rest of the Angular project
-COPY public/view/vet-pos-dev/ .
-
-# Build Angular production bundle
-RUN npm run build -- --configuration production
-
-# Stage 2: PHP / Laravel backend
+# Use official PHP 8.2 + Apache image
 FROM php:8.2-apache
 
-# Install system dependencies for Laravel & PostgreSQL
-RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    zip unzip git curl libpng-dev libonig-dev libxml2-dev \
-    && docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd \
-    && a2enmod rewrite
+# ----------------------------
+# 1️⃣ Enable Apache mods
+# ----------------------------
+RUN a2enmod rewrite headers
 
-# Set working directory
+# ----------------------------
+# 2️⃣ Set working directory
+# ----------------------------
 WORKDIR /var/www/html
 
-# Copy Laravel project files
+# ----------------------------
+# 3️⃣ Copy Laravel app
+# ----------------------------
 COPY . .
 
-# Copy Angular production build to Laravel public folder
-COPY --from=frontend-builder /app/vet-pos-dev/dist/vet-pos-dev ./public/vet-pos-dev
+# ----------------------------
+# 4️⃣ Permissions for storage & cache
+# ----------------------------
+RUN chown -R www-data:www-data storage bootstrap/cache
+RUN chmod -R 775 storage bootstrap/cache
 
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html/storage /var/www/html/bootstrap/cache
+# ----------------------------
+# 5️⃣ Copy Apache config for SPA routing
+# ----------------------------
+COPY docker/vhost.conf /etc/apache2/sites-available/000-default.conf
 
-# Expose port 80
+# ----------------------------
+# 6️⃣ Install PHP extensions (PostgreSQL, etc.)
+# ----------------------------
+RUN apt-get update && apt-get install -y libpq-dev \
+    && docker-php-ext-install pdo pdo_pgsql
+
+# ----------------------------
+# 7️⃣ Expose port
+# ----------------------------
 EXPOSE 80
 
-# Start Apache in foreground
+# ----------------------------
+# 8️⃣ Start Apache
+# ----------------------------
 CMD ["apache2-foreground"]
