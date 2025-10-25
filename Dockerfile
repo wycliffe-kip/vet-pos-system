@@ -19,14 +19,14 @@ WORKDIR /var/www/html
 # Copy Laravel backend + pre-built Angular frontend
 COPY . .
 
-# Ensure storage & cache directories are writable
+# Make storage & cache directories writable
 RUN chown -R www-data:www-data storage bootstrap/cache
 
 # Set Apache DocumentRoot to Laravel public folder
 RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/000-default.conf
 
-# Expose default web port
-EXPOSE 10000
+# Expose web port
+EXPOSE 80
 
-# Start Apache in the foreground
+# Start Apache in foreground
 CMD ["apache2-foreground"]
