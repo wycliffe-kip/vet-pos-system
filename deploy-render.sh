@@ -1,78 +1,77 @@
 #!/bin/bash
 
-# -------------------------------
+# ===============================
 # Deploy Laravel + Angular SPA to Render
-# -------------------------------
+# and push local PostgreSQL to Render
+# ===============================
 
-# Render service name
-SERVICE_NAME="vet-pos-system"
-REPO_URL="<YOUR_GITHUB_REPO_URL>"
-BRANCH="main"
-REGION="oregon"
+# ----- Local DB (to export) -----
+LOCAL_DB_USER="rono_pos"
+LOCAL_DB_PASS="postgres"
+LOCAL_DB_HOST="127.0.0.1"
+LOCAL_DB_PORT="5432"
+LOCAL_DB_NAME="vet_pos_system"
 
-# PostgreSQL credentials (replace with your Render DB)
-# DB_HOST="<POSTGRES_HOST>"
-# DB_PORT="5432"
-# DB_DATABASE="<POSTGRES_DB>"
-# DB_USERNAME="<POSTGRES_USER>"
-# DB_PASSWORD="<POSTGRES_PASSWORD>"
+# ----- Render DB (target) -----
+RENDER_DB_USER="vet_pos_system_user"
+RENDER_DB_PASS="6UHJWN8Lfs9KKGtQx00bJ5Nq3pPHQ6Pl"
+RENDER_DB_HOST="dpg-d3tsj20dl3ps73enbqig-a"
+RENDER_DB_PORT="5432"
+RENDER_DB_NAME="vet_pos_system"
 
-DB_CONNECTION=pgsql
-DB_HOST=dpg-d3tsj20dl3ps73enbqig-a
-DB_PORT=5432
-DB_DATABASE=vet_pos_system
-DB_USERNAME=vet_pos_system_user
-DB_PASSWORD=6UHJWN8Lfs9KKGtQx00bJ5Nq3pPHQ6Pl
+# ----- Render repo -----
+RENDER_REPO="git@github.com:wycliffe-kip/vet-pos-system.git"
+RENDER_BRANCH="main"
 
-# Laravel env vars
+# ----- Laravel APP Key -----
 APP_KEY="base64:/rEu/aOMyU5CCAYjx60+5PFA2KaVSQPIX/NkEZTNtfs="
 APP_URL="https://vet-pos-system.onrender.com"
 
-# -------------------------------
-# Login to Render
-# -------------------------------
-echo "Logging in to Render..."
-render login
-
-# -------------------------------
-# Create Render service (if not exists)
-# -------------------------------
-echo "Creating Render web service..."
-render services create web \
-  --name "$SERVICE_NAME" \
-  --env php \
-  --plan free \
-  --region "$REGION" \
-  --repo "$REPO_URL" \
-  --branch "$BRANCH" \
-  --build-command "composer install --no-dev --optimize-autoloader && php artisan migrate --force" \
-  --start-command "php artisan serve --host=0.0.0.0 --port=\$PORT"
-
-# -------------------------------
-# Set environment variables
-# -------------------------------
-echo "Setting environment variables..."
-render env create --service "$SERVICE_NAME" \
-  APP_ENV=production \
-  APP_DEBUG=false \
-  APP_KEY="$APP_KEY" \
-  APP_URL="$APP_URL" \
-  DB_CONNECTION=pgsql \
-  DB_HOST="$DB_HOST" \
-  DB_PORT="$DB_PORT" \
-  DB_DATABASE="$DB_DATABASE" \
-  DB_USERNAME="$DB_USERNAME" \
-  DB_PASSWORD="$DB_PASSWORD" \
-  SESSION_DRIVER=database \
-  SESSION_DOMAIN=".vet-pos-system.onrender.com" \
-  SANCTUM_STATEFUL_DOMAINS="vet-pos-system.onrender.com"
-
-# -------------------------------
-# Deploy current code
-# -------------------------------
-echo "Deploying current code to Render..."
+# ===============================
+# 1️⃣ Push code to GitHub
+# ===============================
+echo "Adding and committing code..."
 git add .
-git commit -m "Deploy update to Render" || echo "No changes to commit."
-git push origin "$BRANCH"
+git commit -m "Deploy Laravel + Angular SPA to Render" || echo "No changes to commit."
 
-echo "✅ Deployment triggered! Visit $APP_URL"
+echo "Pushing to GitHub repo..."
+git push $RENDER_REPO $RENDER_BRANCH
+if [ $? -ne 0 ]; then
+    echo "❌ Failed to push code to GitHub."
+    exit 1
+fi
+echo "✅ Code pushed to GitHub"
+
+# ===============================
+# 2️⃣ Deploy local DB directly to Render
+# ===============================
+echo "Streaming local DB directly to Render..."
+PGPASSWORD=$LOCAL_DB_PASS pg_dump -U $LOCAL_DB_USER -h $LOCAL_DB_HOST -p $LOCAL_DB_PORT $LOCAL_DB_NAME | \
+PGPASSWORD=$RENDER_DB_PASS psql -U $RENDER_DB_USER -h $RENDER_DB_HOST -d $RENDER_DB_NAME -p $RENDER_DB_PORT
+
+if [ $? -ne 0 ]; then
+    echo "❌ Failed to deploy database to Render."
+    exit 1
+fi
+echo "✅ Database deployed to Render"
+
+# ===============================
+# 3️⃣ Reminder for Render environment variables
+# ===============================
+echo "Reminder: Make sure Render environment variables are set:"
+echo "APP_ENV=production"
+echo "APP_DEBUG=false"
+echo "APP_KEY=$APP_KEY"
+echo "APP_URL=$APP_URL"
+echo "DB_CONNECTION=pgsql"
+echo "DB_HOST=$RENDER_DB_HOST"
+echo "DB_PORT=$RENDER_DB_PORT"
+echo "DB_DATABASE=$RENDER_DB_NAME"
+echo "DB_USERNAME=$RENDER_DB_USER"
+echo "DB_PASSWORD=$RENDER_DB_PASS"
+echo "SESSION_DRIVER=database"
+echo "SESSION_DOMAIN=.vet-pos-system.onrender.com"
+echo "SANCTUM_STATEFUL_DOMAINS=vet-pos-system.onrender.com"
+
+echo "✅ Deployment process complete!"
+echo "Visit $APP_URL"
