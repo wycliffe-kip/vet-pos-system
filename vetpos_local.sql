@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 4NANUCHGw2ftf92C19zu7yS439EBGUGOCZehDEpSsVvFQBUN8BnbPIxHpTbofh2
+\restrict hcpGuQMniOCdcOVZgn42YfPGd0f81zCH3CwguHTHz6LRxAOJtw4n4anmYBgjfkR
 
 -- Dumped from database version 14.19 (Ubuntu 14.19-1.pgdg22.04+1)
 -- Dumped by pg_dump version 17.6 (Ubuntu 17.6-1.pgdg22.04+1)
@@ -291,7 +291,10 @@ CREATE TABLE public.inv_products (
     supplier_id bigint,
     sku character varying(100),
     low_stock_threshold integer DEFAULT 10,
-    unit_id bigint
+    unit_id bigint,
+    buying_price numeric,
+    image character varying,
+    image_path character varying
 );
 
 
@@ -396,6 +399,46 @@ ALTER SEQUENCE public.inv_stock_movements_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.inv_stock_movements_id_seq OWNED BY public.inv_stock_movements.id;
+
+
+--
+-- Name: inv_stock_purchases; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.inv_stock_purchases (
+    id bigint NOT NULL,
+    product_id bigint NOT NULL,
+    quantity integer NOT NULL,
+    buying_price numeric(15,2) NOT NULL,
+    total_cost numeric(15,2) NOT NULL,
+    reason character varying(255),
+    added_by character varying(255),
+    created_at timestamp(0) without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp(0) without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.inv_stock_purchases OWNER TO postgres;
+
+--
+-- Name: inv_stock_purchases_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.inv_stock_purchases_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.inv_stock_purchases_id_seq OWNER TO postgres;
+
+--
+-- Name: inv_stock_purchases_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.inv_stock_purchases_id_seq OWNED BY public.inv_stock_purchases.id;
 
 
 --
@@ -1407,6 +1450,13 @@ ALTER TABLE ONLY public.inv_stock_movements ALTER COLUMN id SET DEFAULT nextval(
 
 
 --
+-- Name: inv_stock_purchases id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.inv_stock_purchases ALTER COLUMN id SET DEFAULT nextval('public.inv_stock_purchases_id_seq'::regclass);
+
+
+--
 -- Name: inv_suppliers id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -1675,14 +1725,16 @@ COPY public.inv_product_units (id, name, is_enabled, created_at, updated_at, des
 -- Data for Name: inv_products; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.inv_products (id, category_id, name, description, unit_price, stock_quantity, is_enabled, created_at, updated_at, supplier_id, sku, low_stock_threshold, unit_id) FROM stdin;
-7	18	EasyGro	\N	250.00	0	t	2025-10-19 18:03:01	2025-10-19 18:03:01	\N	\N	10	18
-6	1	Ivamectin	\N	2000.00	3	t	2025-10-17 16:22:06	2025-10-19 21:13:34.346954	\N	\N	10	4
-4	11	Ectomin	\N	180.00	17	t	2025-10-14 18:04:40	2025-10-19 21:45:13.786065	\N	\N	10	3
-3	23	Vetmicin	\N	450.00	13	t	2025-10-13 21:19:29	2025-10-19 21:51:51.219027	\N	\N	10	5
-2	16	Milking Salve	\N	200.00	10	t	2025-10-13 20:48:24	2025-10-20 14:19:15.90752	\N	\N	10	4
-5	13	Dairy meal	\N	2400.00	19	t	2025-10-17 15:29:14	2025-10-23 23:25:18.126373	\N	\N	10	12
-1	11	Duodip	\N	380.00	10	t	2025-10-13 20:40:07	2025-10-24 00:12:01.814666	\N	\N	10	4
+COPY public.inv_products (id, category_id, name, description, unit_price, stock_quantity, is_enabled, created_at, updated_at, supplier_id, sku, low_stock_threshold, unit_id, buying_price, image, image_path) FROM stdin;
+4	11	Ectomin	\N	180.00	17	t	2025-10-14 18:04:40	2025-10-25 23:07:32.388889	\N	\N	10	3	\N	\N	\N
+5	13	Dairy meal	\N	2400.00	17	t	2025-10-17 15:29:14	2025-10-25 23:14:17.606956	\N	\N	10	12	\N	\N	\N
+7	18	EasyGro	\N	250.00	11	t	2025-10-19 18:03:01	2025-10-27 20:53:07.214446	\N	\N	10	18	200	\N	\N
+8	7	Calf Pellets	\N	800.00	5	t	2025-10-27 17:55:58	2025-10-29 22:19:13.581474	\N	\N	6	10	600	storage/products/product_690268b17d1c4.jpeg	\N
+9	13	Calf	\N	1700.00	5	t	2025-10-29 19:21:08	2025-10-29 22:53:03.368117	\N	\N	3	10	1400	storage/products/product_6902709f578ea.jpeg	\N
+6	1	Ivamectin	\N	2000.00	3	t	2025-10-17 16:22:06	2025-10-19 21:13:34.346954	\N	\N	10	4	\N	\N	\N
+2	16	Milking Salve	\N	200.00	10	t	2025-10-13 20:48:24	2025-10-20 14:19:15.90752	\N	\N	10	4	\N	\N	\N
+1	11	Duodip	\N	380.00	10	t	2025-10-13 20:40:07	2025-10-24 00:12:01.814666	\N	\N	10	4	\N	\N	\N
+3	23	Vetmicin	\N	450.00	12	t	2025-10-13 21:19:29	2025-10-25 23:07:13.619931	\N	\N	10	5	\N	\N	\N
 \.
 
 
@@ -1749,6 +1801,8 @@ COPY public.inv_stock_history (id, product_id, delta, previous_quantity, new_qua
 56	1	1	19	20	Manual Adjustment	Admin	2025-10-17 19:20:02.255716
 57	1	1	20	21	Manual Adjustment	Admin	2025-10-17 19:20:03.455968
 58	6	2	2	4	New Stock Received	Admin	2025-10-17 20:48:25.195428
+59	7	1	0	1	New Stock Received	Admin	2025-10-25 21:15:52.532047
+60	7	1	10	11	New Stock Received	Admin	2025-10-27 20:53:07.214446
 \.
 
 
@@ -1757,6 +1811,16 @@ COPY public.inv_stock_history (id, product_id, delta, previous_quantity, new_qua
 --
 
 COPY public.inv_stock_movements (id, product_id, delta, old_quantity, new_quantity, reason, user_id, created_at, updated_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: inv_stock_purchases; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.inv_stock_purchases (id, product_id, quantity, buying_price, total_cost, reason, added_by, created_at, updated_at) FROM stdin;
+1	7	1	0.00	0.00	New Stock Received	Admin	2025-10-25 21:15:53	2025-10-25 21:15:53
+2	7	1	200.00	200.00	New Stock Received	Admin	2025-10-27 20:53:07	2025-10-27 20:53:07
 \.
 
 
@@ -1850,6 +1914,9 @@ COPY public.pos_sale_items (id, sale_id, product_id, quantity, unit_price, subto
 23	29	1	1	380.00	380.00	4
 24	30	5	1	2400.00	2400.00	12
 25	31	1	1	380.00	380.00	4
+26	32	5	1	2400.00	2400.00	12
+27	33	3	1	450.00	450.00	5
+29	35	5	1	2400.00	2400.00	12
 \.
 
 
@@ -1880,6 +1947,9 @@ COPY public.pos_sales (id, user_id, total_amount, payment_method, created_at, up
 29	\N	380.00	Cash	2025-10-23 22:37:33.444036	2025-10-23 22:37:33.444036	\N	RCPT-20251023-0001
 30	\N	2400.00	Cash	2025-10-23 23:25:18.126373	2025-10-23 23:25:18.126373	\N	RCPT-20251023-0002
 31	\N	380.00	Cash	2025-10-24 00:12:01.814666	2025-10-24 00:12:01.814666	\N	RCPT-20251023-0003
+32	\N	2400.00	Cash	2025-10-25 22:42:06.386763	2025-10-25 22:42:06.386763	\N	RCPT-20251025-0001
+33	\N	450.00	Cash	2025-10-25 23:07:13.619931	2025-10-25 23:07:13.619931	\N	RCPT-20251025-0002
+35	\N	2400.00	Cash	2025-10-25 23:14:17.606956	2025-10-25 23:14:17.606956	\N	RCPT-20251025-0003
 \.
 
 
@@ -1889,6 +1959,7 @@ COPY public.pos_sales (id, user_id, total_amount, payment_method, created_at, up
 
 COPY public.sessions (id, user_id, ip_address, user_agent, payload, last_activity) FROM stdin;
 KQgbLsNcGoqzD7gOwgedzaI3lVcyt2TcECXDTaLe	\N	127.0.0.1	Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36	YTozOntzOjY6Il90b2tlbiI7czo0MDoidGxDRGNNSUVoSGFBMWZWTDBSOUpkcG1NWHhhV3dvWW1yWmphc1RUZiI7czo5OiJfcHJldmlvdXMiO2E6MTp7czozOiJ1cmwiO3M6Nzg6Imh0dHA6Ly92ZXRwb3MubG9jYWw6ODQvcmVzb3VyY2VzL25vZGVfbW9kdWxlcy9kZXZleHRyZW1lL2Rpc3QvY3NzL2R4LmxpZ2h0LmNzcyI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=	1761385035
+SqGGpj50gzUXEq4ZDOJKHbPDhAT5iEArQ5PVKSe9	\N	127.0.0.1	Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36	YTozOntzOjY6Il90b2tlbiI7czo0MDoicWV5VXFNakZjSnFSempPTGtGTGFQcGc3djhHdFlLV2R2b3prc0xKZyI7czo5OiJfcHJldmlvdXMiO2E6MTp7czozOiJ1cmwiO3M6Nzg6Imh0dHA6Ly92ZXRwb3MubG9jYWw6ODQvcmVzb3VyY2VzL25vZGVfbW9kdWxlcy9kZXZleHRyZW1lL2Rpc3QvY3NzL2R4LmxpZ2h0LmNzcyI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=	1761405475
 \.
 
 
@@ -2075,12 +2146,18 @@ COPY public.usr_user_logins (id, user_id, ip_address, logged_in_at, logged_out_a
 83	1	127.0.0.1	2025-10-23 21:53:14.947628	\N
 84	1	127.0.0.1	2025-10-24 17:42:20.444513	2025-10-24 17:43:41.806347
 85	2	127.0.0.1	2025-10-24 17:43:51.023127	2025-10-24 17:44:08.087667
+92	1	127.0.0.1	2025-10-25 18:13:24.746288	\N
 86	3	127.0.0.1	2025-10-24 17:44:20.24308	2025-10-24 18:05:20.146185
 87	1	127.0.0.1	2025-10-24 18:05:30.016097	\N
 88	1	127.0.0.1	2025-10-25 11:05:35.079233	\N
 89	1	127.0.0.1	2025-10-25 11:06:09.312813	\N
 90	1	127.0.0.1	2025-10-25 11:07:05.048662	2025-10-25 11:07:13.58356
 91	1	127.0.0.1	2025-10-25 12:37:32.716996	\N
+93	1	127.0.0.1	2025-10-25 21:18:13.700376	\N
+94	1	127.0.0.1	2025-10-26 00:14:25.268389	\N
+95	1	127.0.0.1	2025-10-26 00:16:08.858713	\N
+96	1	127.0.0.1	2025-10-27 19:06:26.992272	\N
+97	1	127.0.0.1	2025-10-29 21:54:47.954404	\N
 \.
 
 
@@ -2110,7 +2187,7 @@ COPY public.usr_usergroups_navigation (id, usergroup_id, navigation_item_id, can
 COPY public.usr_users (id, name, email, password, is_enabled, created_at, updated_at, remember_token) FROM stdin;
 2	Cashier	cashier@vetpos.com	$2y$12$mP2GN1FkZr82IhxmI8mgfe.brhWkpyB5./f82BWFqpA4L9sRb1e3i	t	2025-10-23 09:03:29.129508	2025-10-24 17:44:08.090085	\N
 3	Manager	manager@vetpos.com	$2y$12$mP2GN1FkZr82IhxmI8mgfe.brhWkpyB5./f82BWFqpA4L9sRb1e3i	t	2025-10-23 09:04:55.486406	2025-10-24 18:05:20.149054	\N
-1	System Admin	admin@vetpos.com	$2y$12$mP2GN1FkZr82IhxmI8mgfe.brhWkpyB5./f82BWFqpA4L9sRb1e3i	t	2025-10-22 22:01:24.908118	2025-10-25 12:37:32.709583	a2ZZQ0IwNjNQQmI0T1pwWENLa0ZpMFdzT2MwejdlU21NM1ZjSFBvN2YyZmRMWnR5
+1	System Admin	admin@vetpos.com	$2y$12$mP2GN1FkZr82IhxmI8mgfe.brhWkpyB5./f82BWFqpA4L9sRb1e3i	t	2025-10-22 22:01:24.908118	2025-10-29 21:54:47.900643	c1hRTzZYSEYyeWJlVHpTYTRDVm9hUHdtY2VhUUU5Tjc5WGF2ZGNNR1BLSDl5NmVN
 \.
 
 
@@ -2144,8 +2221,10 @@ COPY public.wf_navigation_items (id, description, is_enabled, parent_id, level, 
 5	Users & Roles	t	\N	1	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	fa fa-users-cog	\N	Users & Roles	5	\N	\N	\N	\N	f	f	\N
 2	Sales POS	t	1	2	\N	2025-10-14 21:35:50.893074	\N	\N	\N	\N	1	fa fa-cash-register	\N	Sales POS	1	\N	\N	\N	\N	f	f	/sales
 15	Sales List	t	1	2	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	dx-icon-list	\N	Sales List	2	\N	\N	\N	\N	f	f	/sales/list
-19	Daily Sales	t	4	2	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	dx-icon-calendar	\N	Daily Sales	2	\N	\N	\N	\N	f	f	/reports/daily
-20	Monthly Sales	t	4	2	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	dx-icon-calendar	\N	Monthly Sales	3	\N	\N	\N	\N	f	f	/reports/monthly
+26	Sales Dashboard	t	4	2	\N	2025-10-15 23:42:40.863054	\N	\N	\N	\N	1	\N	\N	Sales Dashboard	1	\N	\N	\N	\N	f	f	/reports/
+19	Daily Sales	f	4	2	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	dx-icon-calendar	\N	Daily Sales	2	\N	\N	\N	\N	f	f	/reports/daily
+20	Monthly Sales	f	4	2	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	dx-icon-calendar	\N	Monthly Sales	3	\N	\N	\N	\N	f	f	/reports/monthly
+28	Configurations	t	\N	1	\N	2025-10-27 21:58:16.034048	\N	\N	\N	\N	1	fa fa-cogs	\N	Configs	6	\N	\N	\N	\N	f	f	/inventory/configs
 3	Inventory	t	\N	1	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	fa fa-icon-box	\N	Inventory	3	\N	\N	\N	\N	f	f	\N
 1	Sales	t	\N	1	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	fas fa-shopping-cart	\N	Sales	2	\N	\N	\N	\N	f	f	\N
 24	Create Inventory	f	3	2	system	2025-10-13 23:04:25.793245	\N	\N	\N	\N	\N	dx-icon-plus	\N	Create Inventory	\N	\N	\N	\N	\N	f	f	/inventory/create
@@ -2153,7 +2232,6 @@ COPY public.wf_navigation_items (id, description, is_enabled, parent_id, level, 
 14	New Sale	f	1	2	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	dx-icon-plus	\N	New Sale	1	\N	\N	\N	\N	f	f	/sales/new
 18	Low Stock	f	3	2	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	dx-icon-alert	\N	Low Stock	2	\N	\N	\N	\N	f	f	/inventory/low-stock
 16	Top Products	f	1	2	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	dx-icon-star	\N	Top Products	3	\N	\N	\N	\N	f	f	/sales/top-products
-26	Sales Dashboard	t	4	2	\N	2025-10-15 23:42:40.863054	\N	\N	\N	\N	1	\N	\N	Sales Dashboard	1	\N	\N	\N	\N	f	f	/reports/dashboard
 21	Manage Users & Roles	t	5	2	system	2025-10-12 12:52:45.037033	\N	\N	\N	\N	1	dx-icon-user	\N	Manage Users	1	\N	\N	\N	\N	f	f	/users-roles
 \.
 
@@ -2244,14 +2322,14 @@ SELECT pg_catalog.setval('public.inv_product_units_id_seq', 22, true);
 -- Name: inv_products_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.inv_products_id_seq', 7, true);
+SELECT pg_catalog.setval('public.inv_products_id_seq', 9, true);
 
 
 --
 -- Name: inv_stock_history_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.inv_stock_history_id_seq', 58, true);
+SELECT pg_catalog.setval('public.inv_stock_history_id_seq', 60, true);
 
 
 --
@@ -2259,6 +2337,13 @@ SELECT pg_catalog.setval('public.inv_stock_history_id_seq', 58, true);
 --
 
 SELECT pg_catalog.setval('public.inv_stock_movements_id_seq', 1, false);
+
+
+--
+-- Name: inv_stock_purchases_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.inv_stock_purchases_id_seq', 2, true);
 
 
 --
@@ -2300,14 +2385,14 @@ SELECT pg_catalog.setval('public.pos_customers_id_seq', 1, false);
 -- Name: pos_sale_items_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.pos_sale_items_id_seq', 25, true);
+SELECT pg_catalog.setval('public.pos_sale_items_id_seq', 29, true);
 
 
 --
 -- Name: pos_sales_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.pos_sales_id_seq', 31, true);
+SELECT pg_catalog.setval('public.pos_sales_id_seq', 35, true);
 
 
 --
@@ -2356,7 +2441,7 @@ SELECT pg_catalog.setval('public.usr_user_group_mapping_id_seq', 1, false);
 -- Name: usr_user_logins_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.usr_user_logins_id_seq', 91, true);
+SELECT pg_catalog.setval('public.usr_user_logins_id_seq', 97, true);
 
 
 --
@@ -2398,7 +2483,7 @@ SELECT pg_catalog.setval('public.usr_users_information_id_seq', 1, false);
 -- Name: wf_navigation_items_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.wf_navigation_items_id_seq', 27, true);
+SELECT pg_catalog.setval('public.wf_navigation_items_id_seq', 28, true);
 
 
 --
@@ -2508,6 +2593,14 @@ ALTER TABLE ONLY public.inv_stock_history
 
 ALTER TABLE ONLY public.inv_stock_movements
     ADD CONSTRAINT inv_stock_movements_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: inv_stock_purchases inv_stock_purchases_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.inv_stock_purchases
+    ADD CONSTRAINT inv_stock_purchases_pkey PRIMARY KEY (id);
 
 
 --
@@ -2938,6 +3031,14 @@ ALTER TABLE ONLY public.usr_user_group_mapping
 
 
 --
+-- Name: inv_stock_purchases fk_inv_stock_purchases_product; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.inv_stock_purchases
+    ADD CONSTRAINT fk_inv_stock_purchases_product FOREIGN KEY (product_id) REFERENCES public.inv_products(id) ON DELETE CASCADE;
+
+
+--
 -- Name: usr_user_group_mapping fk_user; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -3185,6 +3286,20 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.inv_stock_movements TO rono_po
 --
 
 GRANT ALL ON SEQUENCE public.inv_stock_movements_id_seq TO rono_pos;
+
+
+--
+-- Name: TABLE inv_stock_purchases; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.inv_stock_purchases TO rono_pos;
+
+
+--
+-- Name: SEQUENCE inv_stock_purchases_id_seq; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT ALL ON SEQUENCE public.inv_stock_purchases_id_seq TO rono_pos;
 
 
 --
@@ -3471,5 +3586,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 4NANUCHGw2ftf92C19zu7yS439EBGUGOCZehDEpSsVvFQBUN8BnbPIxHpTbofh2
+\unrestrict hcpGuQMniOCdcOVZgn42YfPGd0f81zCH3CwguHTHz6LRxAOJtw4n4anmYBgjfkR
 
