@@ -157,52 +157,146 @@ class RbacController extends Controller
 
     /* ==================== USERS ==================== */
 
+    // public function listUsers()
+    // {
+    //     $users = DB::select("
+    //         SELECT u.id, u.name, u.email, u.is_enabled, r.name AS role_name, ui.phone_number 
+    //         FROM usr_users u
+    //         LEFT JOIN usr_user_roles ur ON u.id = ur.user_id
+    //         LEFT JOIN usr_roles r ON r.id = ur.role_id
+    //         LEFT JOIN usr_users_information ui ON ui.user_id = u.id
+    //         ORDER BY u.id
+    //     ");
+    //     return response()->json(['status' => 'success', 'data' => array_map(fn($u) => (array)$u, $users)]);
+    // }
     public function listUsers()
-    {
-        $users = DB::select("
-            SELECT u.id, u.name, u.email, u.is_enabled, r.name AS role_name
-            FROM usr_users u
-            LEFT JOIN usr_user_roles ur ON u.id = ur.user_id
-            LEFT JOIN usr_roles r ON r.id = ur.role_id
-            ORDER BY u.id
-        ");
-        return response()->json(['status' => 'success', 'data' => array_map(fn($u) => (array)$u, $users)]);
+{
+    $users = DB::select("
+        SELECT 
+            u.id,
+            u.name,
+            u.email,
+            u.is_enabled,
+            u.phone_number,
+            r.name AS role_name
+        FROM usr_users u
+        LEFT JOIN usr_user_roles ur ON u.id = ur.user_id
+        LEFT JOIN usr_roles r ON r.id = ur.role_id
+        ORDER BY u.id ASC
+    ");
+
+    return response()->json([
+        'status' => 'success',
+        'data' => array_map(fn($u) => (array)$u, $users)
+    ]);
+}
+
+
+    // public function createUser(Request $request)
+    // {
+    //     $v = Validator::make($request->all(), [
+    //         'name' => 'required|string',
+    //         'email' => 'required|email|unique:usr_users,email',
+    //         'password' => 'required|string|min:6',
+    //         'role_id' => 'nullable|integer|exists:usr_roles,id'
+    //     ]);
+    //     if ($v->fails()) return response()->json(['status' => 'error', 'errors' => $v->errors()], 422);
+
+    //     try {
+    //         $userId = null;
+    //         DB::transaction(function () use ($request, &$userId) {
+    //             $userId = DB::table('usr_users')->insertGetId([
+    //                 'name' => $request->name,
+    //                 'email' => $request->email,
+    //                 'password' => Hash::make($request->password),
+    //                 'is_enabled' => true,
+    //                 'created_at' => now()
+    //             ]);
+
+    //             if ($request->role_id) {
+    //                 DB::insert(
+    //                     'INSERT INTO usr_user_roles (user_id, role_id, assigned_at) VALUES (?, ?, NOW())',
+    //                     [$userId, $request->role_id]
+    //                 );
+    //             }
+    //         });
+
+    //         return response()->json(['status' => 'success', 'message' => 'User created', 'user_id' => $userId], 201);
+    //     } catch (Exception $e) {
+    //         return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+    //     }
+    // }
+public function createUser(Request $request)
+{
+    $v = Validator::make($request->all(), [
+        'name' => 'required|string|max:150',
+        'email' => 'required|email|unique:usr_users,email',
+        'password' => 'required|string|min:6',
+        'role_id' => 'nullable|integer|exists:usr_roles,id',
+        'phone_number' => 'nullable|string|max:50',
+        'address' => 'nullable|string|max:255',
+        'gender' => 'nullable|string|max:10',
+        'dob' => 'nullable|date',
+        'profile_photo' => 'nullable|string|max:255',
+    ]);
+
+    if ($v->fails()) {
+        return response()->json([
+            'status' => 'error',
+            'errors' => $v->errors()
+        ], 422);
     }
 
-    public function createUser(Request $request)
-    {
-        $v = Validator::make($request->all(), [
-            'name' => 'required|string',
-            'email' => 'required|email|unique:usr_users,email',
-            'password' => 'required|string|min:6',
-            'role_id' => 'nullable|integer|exists:usr_roles,id'
-        ]);
-        if ($v->fails()) return response()->json(['status' => 'error', 'errors' => $v->errors()], 422);
+    try {
+        $userId = null;
 
-        try {
-            $userId = null;
-            DB::transaction(function () use ($request, &$userId) {
-                $userId = DB::table('usr_users')->insertGetId([
-                    'name' => $request->name,
-                    'email' => $request->email,
-                    'password' => Hash::make($request->password),
-                    'is_enabled' => true,
-                    'created_at' => now()
-                ]);
+        DB::transaction(function () use ($request, &$userId) {
 
-                if ($request->role_id) {
-                    DB::insert(
-                        'INSERT INTO usr_user_roles (user_id, role_id, assigned_at) VALUES (?, ?, NOW())',
-                        [$userId, $request->role_id]
-                    );
-                }
-            });
+            // 1️⃣ Create user
+            $userId = DB::table('usr_users')->insertGetId([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'is_enabled' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
-            return response()->json(['status' => 'success', 'message' => 'User created', 'user_id' => $userId], 201);
-        } catch (Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-        }
+            // 2️⃣ Insert into usr_users_information (linked by user_id)
+            DB::table('usr_users_information')->insert([
+                'user_id' => $userId,
+                'phone_number' => $request->phone_number,
+                'address' => $request->address,
+                'gender' => $request->gender,
+                'dob' => $request->dob,
+                'profile_photo' => $request->profile_photo,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // 3️⃣ Assign role if provided
+            if ($request->role_id) {
+                DB::insert(
+                    'INSERT INTO usr_user_roles (user_id, role_id, assigned_at) VALUES (?, ?, NOW())',
+                    [$userId, $request->role_id]
+                );
+            }
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'User created successfully',
+            'user_id' => $userId
+        ], 201);
+
+    } catch (Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
+
 
     public function assignRoleToUser(Request $request)
     {

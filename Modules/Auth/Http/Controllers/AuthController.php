@@ -227,13 +227,29 @@ class AuthController extends Controller
     }
 
     // Admin: update user
-    public function update(Request $request, $id)
-    {
-        $this->authenticate($request);
-        $data = $request->only(['name','email','is_enabled','phone_number','address','gender','dob','role_id']);
+public function update(Request $request, $id)
+{
+    $this->authenticate($request);
+
+    $data = $request->only([
+        'name',
+        'email',
+        'is_enabled',
+        'phone_number',
+        'address',
+        'gender',
+        'dob',
+        'role_id'
+    ]);
+
+    try {
         $res = $this->repo->updateUser((int)$id, $data);
-        return response()->json(['status'=>'success','data'=>$res]);
+        return response()->json(['status' => 'success', 'data' => $res]);
+    } catch (\Exception $e) {
+        return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
     }
+}
+
 
     // Dashboard - summary
     public function dashboard(Request $request)

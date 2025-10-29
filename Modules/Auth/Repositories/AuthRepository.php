@@ -14,8 +14,8 @@ class AuthRepository
         return DB::transaction(function() use ($data) {
             $hashed = Hash::make($data['password']);
             $user = DB::selectOne(
-                "INSERT INTO usr_users (name, email, password, is_enabled, created_at) 
-                VALUES (?, ?, ?, TRUE, NOW()) RETURNING id",
+                "INSERT INTO usr_users (name, email, password, is_enabled, created_at, phone_number) 
+                VALUES (?, ?, ?, TRUE, NOW(), ?) RETURNING id",
                 [$data['name'], $data['email'], $hashed]
             );
             if (!$user) throw new Exception('Failed to create user');
@@ -111,32 +111,84 @@ class AuthRepository
         return array_map(fn($r)=>(array)$r, $rows);
     }
 
+    // public function updateUser(int $id, array $data)
+    // {
+    //     return DB::transaction(function() use ($id, $data) {
+    //         DB::update("UPDATE usr_users SET name = ?, email = ?, is_enabled = ?, updated_at = NOW() WHERE id = ?", [
+    //             $data['name'] ?? null,
+    //             $data['email'] ?? null,
+    //             $data['is_enabled'] ?? true,
+    //             $id
+    //         ]);
+
+    //         DB::update("UPDATE usr_users_information SET phone_number = ?, address = ?, gender = ?, dob = ?, updated_at = NOW() WHERE user_id = ?", [
+    //             $data['phone_number'] ?? null,
+    //             $data['address'] ?? null,
+    //             $data['gender'] ?? null,
+    //             $data['dob'] ?? null,
+    //             $id
+    //         ]);
+
+    //         if (isset($data['role_id'])) {
+    //             DB::delete("DELETE FROM usr_user_roles WHERE user_id = ?", [$id]);
+    //             DB::insert("INSERT INTO usr_user_roles (user_id, role_id, assigned_at) VALUES (?, ?, NOW())", [$id, $data['role_id']]);
+    //         }
+
+    //         return $this->getUserById($id);
+    //     });
+    // }
     public function updateUser(int $id, array $data)
-    {
-        return DB::transaction(function() use ($id, $data) {
-            DB::update("UPDATE usr_users SET name = ?, email = ?, is_enabled = ?, updated_at = NOW() WHERE id = ?", [
-                $data['name'] ?? null,
-                $data['email'] ?? null,
-                $data['is_enabled'] ?? true,
-                $id
+{
+    return DB::transaction(function () use ($id, $data) {
+
+        // ✅ Update main user info
+        DB::table('usr_users')
+            ->where('id', $id)
+            ->update([
+                'name' => $data['name'] ?? null,
+                'email' => $data['email'] ?? null,
+                'phone_number' => $data['phone_number'] ?? null,
+                'is_enabled' => $data['is_enabled'] ?? true,
+                'updated_at' => now(),
             ]);
 
-            DB::update("UPDATE usr_users_information SET phone_number = ?, address = ?, gender = ?, dob = ?, updated_at = NOW() WHERE user_id = ?", [
-                $data['phone_number'] ?? null,
-                $data['address'] ?? null,
-                $data['gender'] ?? null,
-                $data['dob'] ?? null,
-                $id
-            ]);
+        // ✅ Handle role update
+        if (!empty($data['role_id'])) {
+            DB::table('usr_user_roles')
+                ->updateOrInsert(
+                    ['user_id' => $id],
+                    ['role_id' => $data['role_id'], 'assigned_at' => now()]
+                );
+        }
 
-            if (isset($data['role_id'])) {
-                DB::delete("DELETE FROM usr_user_roles WHERE user_id = ?", [$id]);
-                DB::insert("INSERT INTO usr_user_roles (user_id, role_id, assigned_at) VALUES (?, ?, NOW())", [$id, $data['role_id']]);
-            }
+        // ✅ Handle user information (phone, gender, etc.)
+        DB::table('usr_users_information')
+            ->updateOrInsert(
+                ['user_id' => $id],
+                [
+                    'phone_number' => $data['phone_number'] ?? null,
+                    'address' => $data['address'] ?? null,
+                    'gender' => $data['gender'] ?? null,
+                    'dob' => $data['dob'] ?? null,
+                    'updated_at' => now(),
+                ]
+            );
 
-            return $this->getUserById($id);
-        });
-    }
+        // ✅ Return the updated user
+        return DB::selectOne("
+            SELECT 
+                u.id, u.name, u.email, u.is_enabled, u.phone_number,
+                r.name AS role_name,
+                ui.phone_number, ui.address, ui.gender, ui.dob
+            FROM usr_users u
+            LEFT JOIN usr_user_roles ur ON u.id = ur.user_id
+            LEFT JOIN usr_roles r ON r.id = ur.role_id
+            LEFT JOIN usr_users_information ui ON ui.user_id = u.id
+            WHERE u.id = ?
+        ", [$id]);
+    });
+}
+
 
     // Count all users
 public function countUsers()
