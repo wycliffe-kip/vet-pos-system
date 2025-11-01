@@ -11,5 +11,5 @@ require base_path('Modules/Sales/routes/web.php');
 
 // SPA Routing: serve Angular index.html for all non-API routes
 Route::get('/{any}', function () {
-    return file_get_contents(public_path('resources/index.html'));
-})->where('any', '^(?!api).*$'); // Excludes /api routes
+    return file_get_contents(public_path('resources/vet-pos-dev/index.html'));
+})->where('any', '^(?!api).*$');

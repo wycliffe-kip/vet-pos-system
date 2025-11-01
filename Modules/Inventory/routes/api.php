@@ -11,7 +11,7 @@ Route::prefix('inventory')->group(function () {
 
     // 🧱 Product CRUD
     Route::get('/', [InventoryController::class, 'getAllProductData']);
-    Route::post('/', [InventoryController::class, 'createNewProduct']);
+    Route::post('/saveProduct', [InventoryController::class, 'saveProduct']);
     
     // ⚠️ Reports / Lists
     Route::get('/low-stock', [InventoryController::class, 'lowStock']);

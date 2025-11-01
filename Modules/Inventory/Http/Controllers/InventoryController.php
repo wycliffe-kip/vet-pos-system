@@ -1,6 +1,7 @@
 <?php
 
 namespace Modules\Inventory\Http\Controllers;
+
 use Illuminate\Support\Facades\Storage;
 
 use Illuminate\Http\Request;
@@ -8,6 +9,8 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class InventoryController extends Controller
 {
@@ -51,179 +54,173 @@ class InventoryController extends Controller
     }
 
 
-    /** 🔹 Create a new product */
-public function createNewProduct(Request $request)
+    public function saveProduct(Request $request)
     {
         try {
-            $request->validate([
+            // 1️⃣ Validate input
+            $validated = $request->validate([
+                'id' => 'nullable|integer|exists:inv_products,id',
                 'category_id' => 'nullable|integer',
                 'unit_id' => 'nullable|integer',
-                'name' => 'required|string',
-                'sku' => 'nullable|string',
-                'buying_price' => 'nullable|numeric',
-                'unit_price' => 'required|numeric',
-                'stock_quantity' => 'required|integer',
-                'low_stock_threshold' => 'nullable|integer',
-                'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+                'name' => 'required|string|max:255',
+                'sku' => 'nullable|string|max:100',
+                'buying_price' => 'nullable|numeric|min:0',
+                'unit_price' => 'required|numeric|min:0',
+                'stock_quantity' => 'required|integer|min:0',
+                'low_stock_threshold' => 'nullable|integer|min:0',
+                'is_enabled' => 'nullable|boolean',
+                'description' => 'nullable|string',
+                'image_base64' => 'nullable|string',
             ]);
 
             $now = now();
-            $imagePath = null;
 
-            /** ✅ Handle Image Upload (stored in storage/app/public/products) */
-            if ($request->hasFile('image')) {
-                $image = $request->file('image');
-                $fileName = uniqid('product_') . '.' . $image->getClientOriginalExtension();
-                $image->storeAs('products', $fileName); // uses public disk by default
-                $imagePath = 'storage/products/' . $fileName; // public URL path
-            }
-
-            /** ✅ Insert product */
-            DB::table('inv_products')->insert([
-                'category_id' => $request->category_id,
-                'name' => $request->name,
-                'description' => $request->description ?? null,
-                'unit_id' => $request->unit_id,
-                'buying_price' => $request->buying_price,
-                'unit_price' => $request->unit_price,
-                'stock_quantity' => $request->stock_quantity,
-                'low_stock_threshold' => $request->low_stock_threshold ?? 10,
-                'image' => $imagePath,
-                'is_enabled' => true,
-                'created_at' => $now,
+            // 2️⃣ Prepare data for insert/update
+            $data = [
+                'category_id' => $validated['category_id'] ?? null,
+                'unit_id' => $validated['unit_id'] ?? null,
+                'name' => $validated['name'],
+                'sku' => $validated['sku'] ?? null,
+                'description' => $validated['description'] ?? null,
+                'buying_price' => $validated['buying_price'] ?? 0,
+                'unit_price' => $validated['unit_price'],
+                'stock_quantity' => $validated['stock_quantity'],
+                'low_stock_threshold' => $validated['low_stock_threshold'] ?? 10,
+                'is_enabled' => $validated['is_enabled'] ?? true,
+                'image_base64' => $validated['image_base64'] ?? null,
                 'updated_at' => $now,
-            ]);
+            ];
 
+            if (isset($validated['id'])) {
+                // 3️⃣ Update existing product
+                $updated = DB::table('inv_products')->where('id', $validated['id'])->update($data);
+
+                if ($updated === 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No changes were made or product not found',
+                    ], 404);
+                }
+
+                $product = DB::table('inv_products')->where('id', $validated['id'])->first();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Product updated successfully',
+                    'product' => $product,
+                ]);
+            } else {
+                // 4️⃣ Create new product
+                $data['created_at'] = $now;
+                $id = DB::table('inv_products')->insertGetId($data);
+
+                $product = DB::table('inv_products')->where('id', $id)->first();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Product created successfully',
+                    'product' => $product,
+                ]);
+            }
+        } catch (ValidationException $ve) {
             return response()->json([
-                'status' => 'success',
-                'message' => 'Product created successfully'
-            ]);
-
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $ve->errors(),
+            ], 422);
         } catch (\Exception $e) {
+            Log::error('Error saving product: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
             return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to create product',
-                'error' => $e->getMessage()
+                'success' => false,
+                'message' => 'An error occurred while saving the product',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
-/** 🔹 Update product details */
-public function updateProduct(Request $request, $id)
+    /** 🔹 Update product details */
+    public function updateProduct(Request $request, $id)
+    {
+        $request->validate([
+            'category_id' => 'nullable|integer',
+            'unit_id' => 'nullable|integer',
+            'name' => 'required|string',
+            'sku' => 'nullable|string',
+            'buying_price' => 'nullable|numeric',
+            'unit_price' => 'required|numeric',
+            'stock_quantity' => 'required|integer',
+            'low_stock_threshold' => 'nullable|integer',
+            'is_enabled' => 'nullable|boolean',
+            'image_base64' => 'nullable|string',
+        ]);
+
+        $now = now();
+
+        DB::table('inv_products')->where('id', $id)->update([
+            'category_id' => $request->category_id,
+            'name' => $request->name,
+            'description' => $request->description ?? null,
+            'unit_id' => $request->unit_id,
+            'buying_price' => $request->buying_price,
+            'unit_price' => $request->unit_price,
+            'stock_quantity' => $request->stock_quantity,
+            'low_stock_threshold' => $request->low_stock_threshold ?? 10,
+            'image_base64' => $request->image_base64 ?? DB::raw('image_base64'),
+            'is_enabled' => $request->is_enabled ?? true,
+            'updated_at' => $now,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product updated successfully'
+        ]);
+    }
+
+
+
+    /** 🔹 Delete a product and its image */
+    public function deleteProduct($id)
     {
         try {
-            $request->validate([
-                'category_id' => 'nullable|integer',
-                'name' => 'required|string',
-                'unit_id' => 'nullable|integer',
-                'description' => 'nullable|string',
-                'buying_price' => 'nullable|numeric',
-                'unit_price' => 'required|numeric',
-                'stock_quantity' => 'required|integer',
-                'low_stock_threshold' => 'nullable|integer',
-                'is_enabled' => 'nullable',
-                'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            ]);
+            // ✅ Find product
+            $product = DB::table('inv_products')->where('id', $id)->first();
 
-            $isEnabled = filter_var($request->input('is_enabled', true), FILTER_VALIDATE_BOOLEAN);
-            $imagePath = null;
-
-            /** ✅ Handle image replacement */
-            if ($request->hasFile('image')) {
-                $product = DB::table('inv_products')->where('id', $id)->first();
-
-                // Delete old image if exists
-                if ($product && $product->image && Storage::exists(str_replace('storage/', '', $product->image))) {
-                    Storage::delete(str_replace('storage/', '', $product->image));
-                }
-
-                // Upload new one
-                $image = $request->file('image');
-                $fileName = uniqid('product_') . '.' . $image->getClientOriginalExtension();
-                $image->storeAs('products', $fileName);
-                $imagePath = 'storage/products/' . $fileName;
-
-                DB::table('inv_products')->where('id', $id)->update(['image' => $imagePath]);
+            if (!$product) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Product not found'
+                ], 404);
             }
 
-            /** ✅ Update product info */
-            DB::table('inv_products')->where('id', $id)->update([
-                'category_id' => $request->category_id,
-                'name' => $request->name,
-                'description' => $request->description ?? null,
-                'unit_id' => $request->unit_id,
-                'buying_price' => $request->buying_price,
-                'unit_price' => $request->unit_price,
-                'stock_quantity' => $request->stock_quantity,
-                'low_stock_threshold' => $request->low_stock_threshold ?? 10,
-                'is_enabled' => $isEnabled,
-                'updated_at' => now(),
-            ]);
+            // ✅ Delete image if it exists in storage
+            if ($product->image) {
+                // Convert 'storage/products/image.jpg' → 'public/products/image.jpg'
+                $relativePath = str_replace('storage/', 'public/', $product->image);
+
+                if (Storage::exists($relativePath)) {
+                    Storage::delete($relativePath);
+                }
+            }
+
+            // ✅ Delete the product record
+            DB::table('inv_products')->where('id', $id)->delete();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Product updated successfully'
+                'message' => 'Product and image deleted successfully'
             ]);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Validation failed',
-                'errors' => $e->errors(),
-            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to update product',
+                'message' => 'Failed to delete product',
                 'error' => $e->getMessage(),
             ], 500);
         }
     }
 
 
-/** 🔹 Delete a product and its image */
-public function deleteProduct($id)
-{
-    try {
-        // ✅ Find product
-        $product = DB::table('inv_products')->where('id', $id)->first();
-
-        if (!$product) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Product not found'
-            ], 404);
-        }
-
-        // ✅ Delete image if it exists in storage
-        if ($product->image) {
-            // Convert 'storage/products/image.jpg' → 'public/products/image.jpg'
-            $relativePath = str_replace('storage/', 'public/', $product->image);
-
-            if (Storage::exists($relativePath)) {
-                Storage::delete($relativePath);
-            }
-        }
-
-        // ✅ Delete the product record
-        DB::table('inv_products')->where('id', $id)->delete();
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Product and image deleted successfully'
-        ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Failed to delete product',
-            'error' => $e->getMessage(),
-        ], 500);
-    }
-}
-
-
-  /** 🔹 Delete product */
+    /** 🔹 Delete product */
     public function destroy($id)
     {
         try {
@@ -240,7 +237,7 @@ public function deleteProduct($id)
     {
         try {
             $products = DB::select("
-                SELECT p.id, p.name, p.unit_price, p.description, p.image,
+                SELECT p.id, p.name, p.unit_price, p.description, p.image, p.image_base64
                        c.name AS category_name, u.name AS unit_name
                 FROM inv_products p
                 LEFT JOIN inv_categories c ON p.category_id = c.id
@@ -302,7 +299,7 @@ public function deleteProduct($id)
         }
     }
 
- /** 🔹 Stock history */
+    /** 🔹 Stock history */
     public function stockHistory($productId)
     {
         try {
@@ -365,7 +362,7 @@ public function deleteProduct($id)
     }
 
 
-  /** 🔹 Get product units */
+    /** 🔹 Get product units */
     public function getUnits()
     {
         try {
@@ -384,7 +381,7 @@ public function deleteProduct($id)
         }
     }
 
-/** 🔹 Add new stock (with weighted avg price) */
+    /** 🔹 Add new stock (with weighted avg price) */
     public function addNewStock(Request $request, $id)
     {
         try {
@@ -460,7 +457,7 @@ public function deleteProduct($id)
         }
     }
 
-        /**
+    /**
      * 🔹 Load any POS config dynamically
      */
     public function loadConfig(Request $req)
@@ -477,7 +474,7 @@ public function deleteProduct($id)
             }
 
             // 🔹 Check if table is blocked
-         
+
 
             $sql = DB::table($tableName);
 
@@ -600,52 +597,51 @@ public function deleteProduct($id)
     }
 
     /**
- * 🔹 Return available config tables
- */
-public function getConfigTables()
-{
-    // You can define allowed tables here
-    $tables = [
-        ['table_name' => 'inv_categories', 'display_name' => 'Categories'],
-        ['table_name' => 'inv_product_units', 'display_name' => 'Units'],
-        ['table_name' => 'inv_products', 'display_name' => 'Products']
-        // Add more tables here
-    ];
-
-    return response()->json([
-        'success' => true,
-        'data' => $tables
-    ]);
-}
-
-/**
- * 🔹 Get columns for a table dynamically
- */
-public function getTableColumns(Request $req)
-{
-    $tableName = $req->query('table_name');
-
-    if (!$tableName || !Schema::hasTable($tableName)) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Invalid table'
-        ], 400);
-    }
-
-    $columns = Schema::getColumnListing($tableName); // Get all columns
-    $data = [];
-
-    foreach ($columns as $col) {
-        $data[] = [
-            'name' => $col,
-            'type' => DB::getSchemaBuilder()->getColumnType($tableName, $col)
+     * 🔹 Return available config tables
+     */
+    public function getConfigTables()
+    {
+        // You can define allowed tables here
+        $tables = [
+            ['table_name' => 'inv_categories', 'display_name' => 'Categories'],
+            ['table_name' => 'inv_product_units', 'display_name' => 'Units'],
+            ['table_name' => 'inv_products', 'display_name' => 'Products']
+            // Add more tables here
         ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $tables
+        ]);
     }
 
-    return response()->json([
-        'success' => true,
-        'data' => $data
-    ]);
-}
+    /**
+     * 🔹 Get columns for a table dynamically
+     */
+    public function getTableColumns(Request $req)
+    {
+        $tableName = $req->query('table_name');
 
+        if (!$tableName || !Schema::hasTable($tableName)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid table'
+            ], 400);
+        }
+
+        $columns = Schema::getColumnListing($tableName); // Get all columns
+        $data = [];
+
+        foreach ($columns as $col) {
+            $data[] = [
+                'name' => $col,
+                'type' => DB::getSchemaBuilder()->getColumnType($tableName, $col)
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ]);
+    }
 }

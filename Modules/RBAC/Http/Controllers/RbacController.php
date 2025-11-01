@@ -57,14 +57,9 @@ class RbacController extends Controller
 
     /* ==================== PERMISSIONS ==================== */
 
-    // public function listPermissions()
-    // {
-    //     $permissions = DB::select("SELECT id, name, code, description, navigation_item_id FROM usr_permissions ORDER BY id");
-    //     return response()->json(['status' => 'success', 'data' => array_map(fn($p) => (array)$p, $permissions)]);
-    // }
     public function listPermissions()
-{
-    $permissions = DB::select("
+    {
+        $permissions = DB::select("
         SELECT 
             p.id,
             p.name,
@@ -81,11 +76,11 @@ class RbacController extends Controller
         ORDER BY p.id
     ");
 
-    return response()->json([
-        'status' => 'success',
-        'data' => array_map(fn($p) => (array)$p, $permissions)
-    ]);
-}
+        return response()->json([
+            'status' => 'success',
+            'data' => array_map(fn($p) => (array)$p, $permissions)
+        ]);
+    }
 
 
     public function createPermission(Request $request)
@@ -155,23 +150,9 @@ class RbacController extends Controller
         }
     }
 
-    /* ==================== USERS ==================== */
-
-    // public function listUsers()
-    // {
-    //     $users = DB::select("
-    //         SELECT u.id, u.name, u.email, u.is_enabled, r.name AS role_name, ui.phone_number 
-    //         FROM usr_users u
-    //         LEFT JOIN usr_user_roles ur ON u.id = ur.user_id
-    //         LEFT JOIN usr_roles r ON r.id = ur.role_id
-    //         LEFT JOIN usr_users_information ui ON ui.user_id = u.id
-    //         ORDER BY u.id
-    //     ");
-    //     return response()->json(['status' => 'success', 'data' => array_map(fn($u) => (array)$u, $users)]);
-    // }
     public function listUsers()
-{
-    $users = DB::select("
+    {
+        $users = DB::select("
         SELECT 
             u.id,
             u.name,
@@ -185,119 +166,81 @@ class RbacController extends Controller
         ORDER BY u.id ASC
     ");
 
-    return response()->json([
-        'status' => 'success',
-        'data' => array_map(fn($u) => (array)$u, $users)
-    ]);
-}
-
-
-    // public function createUser(Request $request)
-    // {
-    //     $v = Validator::make($request->all(), [
-    //         'name' => 'required|string',
-    //         'email' => 'required|email|unique:usr_users,email',
-    //         'password' => 'required|string|min:6',
-    //         'role_id' => 'nullable|integer|exists:usr_roles,id'
-    //     ]);
-    //     if ($v->fails()) return response()->json(['status' => 'error', 'errors' => $v->errors()], 422);
-
-    //     try {
-    //         $userId = null;
-    //         DB::transaction(function () use ($request, &$userId) {
-    //             $userId = DB::table('usr_users')->insertGetId([
-    //                 'name' => $request->name,
-    //                 'email' => $request->email,
-    //                 'password' => Hash::make($request->password),
-    //                 'is_enabled' => true,
-    //                 'created_at' => now()
-    //             ]);
-
-    //             if ($request->role_id) {
-    //                 DB::insert(
-    //                     'INSERT INTO usr_user_roles (user_id, role_id, assigned_at) VALUES (?, ?, NOW())',
-    //                     [$userId, $request->role_id]
-    //                 );
-    //             }
-    //         });
-
-    //         return response()->json(['status' => 'success', 'message' => 'User created', 'user_id' => $userId], 201);
-    //     } catch (Exception $e) {
-    //         return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-    //     }
-    // }
-public function createUser(Request $request)
-{
-    $v = Validator::make($request->all(), [
-        'name' => 'required|string|max:150',
-        'email' => 'required|email|unique:usr_users,email',
-        'password' => 'required|string|min:6',
-        'role_id' => 'nullable|integer|exists:usr_roles,id',
-        'phone_number' => 'nullable|string|max:50',
-        'address' => 'nullable|string|max:255',
-        'gender' => 'nullable|string|max:10',
-        'dob' => 'nullable|date',
-        'profile_photo' => 'nullable|string|max:255',
-    ]);
-
-    if ($v->fails()) {
-        return response()->json([
-            'status' => 'error',
-            'errors' => $v->errors()
-        ], 422);
-    }
-
-    try {
-        $userId = null;
-
-        DB::transaction(function () use ($request, &$userId) {
-
-            // 1️⃣ Create user
-            $userId = DB::table('usr_users')->insertGetId([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'is_enabled' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // 2️⃣ Insert into usr_users_information (linked by user_id)
-            DB::table('usr_users_information')->insert([
-                'user_id' => $userId,
-                'phone_number' => $request->phone_number,
-                'address' => $request->address,
-                'gender' => $request->gender,
-                'dob' => $request->dob,
-                'profile_photo' => $request->profile_photo,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // 3️⃣ Assign role if provided
-            if ($request->role_id) {
-                DB::insert(
-                    'INSERT INTO usr_user_roles (user_id, role_id, assigned_at) VALUES (?, ?, NOW())',
-                    [$userId, $request->role_id]
-                );
-            }
-        });
-
         return response()->json([
             'status' => 'success',
-            'message' => 'User created successfully',
-            'user_id' => $userId
-        ], 201);
-
-    } catch (Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => $e->getMessage()
-        ], 500);
+            'data' => array_map(fn($u) => (array)$u, $users)
+        ]);
     }
-}
 
+    public function createUser(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'name' => 'required|string|max:150',
+            'email' => 'required|email|unique:usr_users,email',
+            'password' => 'required|string|min:6',
+            'role_id' => 'nullable|integer|exists:usr_roles,id',
+            'phone_number' => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:255',
+            'gender' => 'nullable|string|max:10',
+            'dob' => 'nullable|date',
+            'profile_photo' => 'nullable|string|max:255',
+        ]);
 
+        if ($v->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => $v->errors()
+            ], 422);
+        }
+
+        try {
+            $userId = null;
+
+            DB::transaction(function () use ($request, &$userId) {
+
+                // 1️⃣ Create user
+                $userId = DB::table('usr_users')->insertGetId([
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
+                    'is_enabled' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                // 2️⃣ Insert into usr_users_information (linked by user_id)
+                DB::table('usr_users_information')->insert([
+                    'user_id' => $userId,
+                    'phone_number' => $request->phone_number,
+                    'address' => $request->address,
+                    'gender' => $request->gender,
+                    'dob' => $request->dob,
+                    'profile_photo' => $request->profile_photo,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                // 3️⃣ Assign role if provided
+                if ($request->role_id) {
+                    DB::insert(
+                        'INSERT INTO usr_user_roles (user_id, role_id, assigned_at) VALUES (?, ?, NOW())',
+                        [$userId, $request->role_id]
+                    );
+                }
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'User created successfully',
+                'user_id' => $userId
+            ], 201);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
     public function assignRoleToUser(Request $request)
     {
         $v = Validator::make($request->all(), [
@@ -392,6 +335,75 @@ public function createUser(Request $request)
 
 
     /* ==================== NAVIGATION ==================== */
+public function saveNavigationItem(Request $request)
+{
+    // Determine if this is an update or create operation
+    $isUpdate = $request->has('id') && !empty($request->id);
+
+    // Common validation rules
+    $rules = [
+        'name' => 'required|string|max:255',
+        'description' => 'nullable|string|max:500',
+        'nav_routerlink' => 'nullable|string|max:255',
+        'icons_cls' => 'nullable|string|max:100',
+        'parent_id' => 'nullable|integer|exists:wf_navigation_items,id',
+        'level' => 'nullable|integer|min:1',
+        'order_no' => 'nullable|integer|min:0',
+        'is_enabled' => 'nullable|boolean'
+    ];
+
+    if ($isUpdate) {
+        $rules['id'] = 'required|integer|exists:wf_navigation_items,id';
+    }
+
+    $validator = Validator::make($request->all(), $rules);
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => 'error',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    try {
+        DB::transaction(function () use ($request, $isUpdate) {
+            $data = [
+                'name' => $request->name,
+                'description' => $request->description,
+                'nav_routerlink' => $request->nav_routerlink,
+                'icons_cls' => $request->icons_cls,
+                'parent_id' => $request->parent_id,
+                'level' => $request->level ?? 1,
+                'order_no' => $request->order_no ?? 0,
+                'is_enabled' => $request->is_enabled ?? true,
+                'updated_at' => now(),
+            ];
+
+            if ($isUpdate) {
+                // 🔁 Update existing navigation
+                DB::table('wf_navigation_items')
+                    ->where('id', $request->id)
+                    ->update($data);
+            } else {
+                // ➕ Insert new navigation
+                $data['created_at'] = now();
+                DB::table('wf_navigation_items')->insert($data);
+            }
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $isUpdate
+                ? 'Navigation item updated successfully.'
+                : 'Navigation item created successfully.'
+        ]);
+
+    } catch (Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Failed to save navigation item: ' . $e->getMessage()
+        ], 500);
+    }
+}
 
     public function listNavigationItems(Request $request)
     {
@@ -402,117 +414,6 @@ public function createUser(Request $request)
         return response()->json(['status' => 'success', 'data' => array_map(fn($i) => (array)$i, $items)]);
     }
 
-    // public function getUserNavigation(Request $request, $userId)
-    // {
-    //     $roles = DB::select('SELECT role_id FROM usr_user_roles WHERE user_id = ?', [$userId]);
-    //     $roleIds = array_map(fn($r) => $r->role_id, $roles);
-
-    //     if (empty($roleIds)) return response()->json(['success' => true, 'navigation_items' => []]);
-
-    //     $placeholders = implode(',', array_fill(0, count($roleIds), '?'));
-    //     $sql = "
-    //         SELECT DISTINCT n.id, n.name, n.description, n.parent_id, n.order_no,
-    //                         n.icons_cls AS iconsCls, n.nav_routerlink AS route,
-    //                         n.level, n.is_enabled
-    //         FROM wf_navigation_items n
-    //         INNER JOIN usr_permissions p ON n.id = p.navigation_item_id
-    //         INNER JOIN usr_permission_roles pr ON p.id = pr.permission_id
-    //         WHERE pr.role_id IN ($placeholders) AND n.is_enabled = TRUE
-    //         ORDER BY n.order_no
-    //     ";
-    //     $rows = DB::select($sql, $roleIds);
-    //     $items = array_map(fn($r) => (array)$r, $rows);
-    //     $tree = $this->buildNavigationTree($items);
-
-    //     return response()->json(['success' => true, 'navigation_items' => $tree]);
-    // }
-
-    //     public function getUserNavigation(Request $request, $userId)
-    // {
-    //     // Get all role IDs for the given user
-    //     // $roleIds = DB::table('usr_user_roles')
-    //     //     ->where('user_id', $userId)
-    //     //     ->pluck('role_id')
-    //     //     ->toArray();
-
-    //     // if (empty($roleIds)) {
-    //     //     return response()->json(['success' => true, 'navigation_items' => []]);
-    //     // }
-
-    //     $role_id = $request->role_id;
-
-    //     // Build query with Query Builder instead of raw SQL
-    //     $items = DB::table('wf_navigation_items as t1')
-    //         ->leftJoin('usr_user_roles as t2', 'n.id', '=', 't2.navigation_item_id')
-    //         ->distinct()
-    //         ->select(
-    //             't1.id',
-    //             't1.name',
-    //             't1.description',
-    //             't1.parent_id',
-    //             't1.order_no',
-    //             't1.icons_cls as iconsCls',
-    //             't1.nav_routerlink as route',
-    //             't1.level',
-    //             't1.is_enabled'
-    //         )
-    //         ->join('usr_permissions as p', 't1.id', '=', 'p.navigation_item_id')
-    //         ->join('usr_permission_roles as pr', 'p.id', '=', 'pr.permission_id')
-    //         ->whereIn('pr.role_id', $role_id)
-    //         ->where('t1.is_enabled', true)
-    //         ->orderBy('t1.order_no')
-    //         ->get()
-    //         ->map(fn($r) => (array)$r)
-    //         ->toArray();
-
-    //     // Build hierarchical tree structure
-    //     $tree = $this->buildNavigationTree($items);
-
-    //     return response()->json(['success' => true, 'navigation_items' => $tree]);
-    // }
-    // public function getUserNavigation(Request $request, $userId)
-    // {
-    //     // ✅ Validate role_id
-    //     $role_id = $request->input('role_id');
-    //     print_r('role',$role_id);
-    //     if (!$role_id) {
-    //         return response()->json(['success' => false, 'message' => 'role_id is required'], 400);
-    //     }
-
-    //     // ✅ Build query using Query Builder
-    //     $items = DB::table('wf_navigation_items as n')
-    //         ->join('usr_permissions as p', 'n.id', '=', 'p.navigation_item_id')
-    //         ->join('usr_permission_roles as pr', 'p.id', '=', 'pr.permission_id')
-    //         ->join('usr_user_roles as ur', 'ur.role_id', '=', 'pr.role_id')
-    //         ->join('usr_roles as t5', 't5.id', '=', 'ur.role_id')
-    //         ->where('pr.role_id', $role_id)
-    //         ->where('n.is_enabled', true)
-    //         ->distinct()
-    //         ->select(
-    //             'n.id',
-    //             'n.name',
-    //             'n.description',
-    //             'n.parent_id',
-    //             'n.order_no',
-    //             'n.icons_cls as iconsCls',
-    //             'n.nav_routerlink as route',
-    //             'n.level',
-    //             'n.is_enabled',
-    //             't5.id as role_id'
-    //         )
-    //         ->orderBy('n.order_no')
-    //         ->get()
-    //         ->map(fn($r) => (array)$r)
-    //         ->toArray();
-
-    //     // ✅ Build hierarchical tree structure
-    //     $tree = $this->buildNavigationTree($items);
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'navigation_items' => $tree
-    //     ]);
-    // }
     public function getUserNavigation(Request $request, $userId)
     {
         // ✅ Accept one or multiple role IDs

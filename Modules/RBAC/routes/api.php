@@ -40,4 +40,5 @@ Route::prefix('rbac')->group(function () {
     /** ---------------- NAVIGATION ---------------- */
     Route::get('/navigation-items', [RbacController::class, 'listNavigationItems']);
     Route::get('/users/{userId}/navigation', [RbacController::class, 'getUserNavigation']);
+    Route::post('/navigation', [RbacController::class, 'saveNavigationItem']);
 });
