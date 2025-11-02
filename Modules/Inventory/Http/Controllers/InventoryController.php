@@ -464,6 +464,7 @@ class InventoryController extends Controller
     {
         try {
             $tableName = $req->input('table_name');
+            
             $filters = $req->input('filter', []);
 
             if (!$tableName) {
@@ -474,7 +475,6 @@ class InventoryController extends Controller
             }
 
             // 🔹 Check if table is blocked
-
 
             $sql = DB::table($tableName);
 

@@ -32,8 +32,9 @@ Route::prefix('inventory')->group(function () {
     // 📦 Purchase History
     Route::get('/{id}/purchase-history', [InventoryController::class, 'purchaseHistory']);
         // Config routes
-    Route::get('/config-tables', [InventoryController::class, 'getConfigTables']); // GET /inventory/config-tables
-    Route::get('/load-config', [InventoryController::class, 'loadConfig']);        // GET /inventory/loadConfig
-    Route::post('/saveConfig', [InventoryController::class, 'saveConfig']);       // POST /inventory/saveConfig
-    Route::delete('/deleteConfig/{id}', [InventoryController::class, 'deleteConfig']); // DELETE /inventory/deleteConfig/:id
+    Route::get('/getConfigurationTables', [InventoryController::class, 'getConfigTables']); 
+     Route::get('/getTableColumns', [InventoryController::class, 'getTableColumns']); 
+    Route::get('/loadConfig', [InventoryController::class, 'loadConfig']);        
+    Route::post('/saveConfig', [InventoryController::class, 'saveConfig']);       
+    Route::delete('/deleteConfig', [InventoryController::class, 'deleteConfig']); 
 });
