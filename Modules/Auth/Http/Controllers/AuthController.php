@@ -180,6 +180,7 @@ class AuthController extends Controller
 
         return $user;
     }
+    
 
     // Me
     public function me(Request $request)

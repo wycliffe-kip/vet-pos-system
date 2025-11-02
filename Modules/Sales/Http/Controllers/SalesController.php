@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Exception;
+use Illuminate\Support\Facades\Log;
 use Modules\Auth\Http\Controllers\AuthController;
 use Modules\Auth\Repositories\AuthRepository;
 
@@ -13,12 +14,13 @@ class SalesController extends Controller
 {
         protected AuthRepository $repo;
     protected AuthController $auth;
+ protected $authRepo;
 
-    public function __construct(AuthRepository $repo, AuthController $auth)
+    public function __construct(AuthRepository $authRepo)
     {
-        $this->repo = $repo;
-        $this->auth = $auth;
+        $this->authRepo = $authRepo;
     }
+  
     // List sales  // List all sales
     public function index()
     {
@@ -306,80 +308,143 @@ class SalesController extends Controller
     //     }, 5);
     // }
       // Create a new sale
-    public function onCreateSale(Request $request)
-    {
-              $user = $this->auth->authenticate($request);
-        $userId = $user['user']['id']; // access the logged-in user ID
+   
+public function onCreateSale(Request $request)
+{
+    $start = microtime(true); // performance timer
+
+    try {
+        $token = $request->bearerToken();
+        $user = $this->authRepo->getUserByToken($token);
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+        }
+
+        $userId = $user['user']['id'];
+
         $request->validate([
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|integer',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_id' => 'nullable|integer',
-            'items.*.unit_price' => 'required|numeric',
+            'items.*.unit_price' => 'required|numeric|min:0',
             'payment_method' => 'required|string',
             'customer_id' => 'nullable|integer'
         ]);
 
-        
-        if (!$user) return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
-        $userId = $user->id;
+        return DB::transaction(function () use ($request, $userId, $start) {
 
-        return DB::transaction(function () use ($request, $userId) {
-            $total = collect($request->items)->sum(fn($it) => $it['unit_price'] * $it['quantity']);
+            $items = collect($request->items);
             $customerId = $request->customer_id ?? null;
+            $total = $items->sum(fn($it) => $it['quantity'] * $it['unit_price']);
 
-            $date = now()->format('Ymd');
-            $countToday = DB::table('pos_sales')->whereDate('created_at', now()->toDateString())->count();
-            $receiptNo = 'RCPT-' . $date . '-' . str_pad($countToday + 1, 4, '0', STR_PAD_LEFT);
+            // ✅ Fast lightweight receipt number (no COUNT(*))
+            $seq = DB::table('system_sequences')->where('key', 'receipt_number')->increment('value');
+            $receiptNo = sprintf('RCPT-%s-%04d', now()->format('Ymd'), $seq);
 
-            $sale = DB::selectOne("
-                INSERT INTO pos_sales (user_id, total_amount, payment_method, customer_id, receipt_no, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-                RETURNING *
-            ", [$userId, $total, $request->payment_method, $customerId, $receiptNo]);
+            // ✅ Create sale record
+            $saleId = DB::table('pos_sales')->insertGetId([
+                'user_id' => $userId,
+                'customer_id' => $customerId,
+                'payment_method' => $request->payment_method,
+                'total_amount' => $total,
+                'receipt_no' => $receiptNo,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
-            if (!$sale) throw new Exception('Failed to create sale');
-            $saleId = $sale->id;
+            // ✅ Fetch and lock all products once
+            $productIds = $items->pluck('product_id')->toArray();
+            $products = DB::table('inv_products')
+                ->whereIn('id', $productIds)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
 
-            foreach ($request->items as $it) {
-                $productId = $it['product_id'];
+            $saleItems = [];
+            $stockMovements = [];
+            $caseParts = [];
+            $ids = [];
+
+            foreach ($items as $it) {
+                $pid = $it['product_id'];
                 $qty = (int)$it['quantity'];
+                $price = $it['unit_price'];
                 $unitId = $it['unit_id'] ?? null;
-                $unitPrice = $it['unit_price'];
-                $subtotal = $unitPrice * $qty;
 
-                $prod = DB::selectOne("SELECT id, stock_quantity FROM inv_products WHERE id = ? FOR UPDATE", [$productId]);
-                if (!$prod) throw new Exception("Product $productId not found");
-                if ($prod->stock_quantity < $qty) throw new Exception("Insufficient stock for product $productId");
+                if (!isset($products[$pid])) {
+                    throw new Exception("Product {$pid} not found");
+                }
 
-                DB::update("UPDATE inv_products SET stock_quantity = stock_quantity - ?, updated_at = NOW() WHERE id = ?", [$qty, $productId]);
+                $p = $products[$pid];
+                if ($p->stock_quantity < $qty) {
+                    throw new Exception("Insufficient stock for {$p->name}");
+                }
 
-                DB::insert("
-                    INSERT INTO pos_sale_items (sale_id, product_id, quantity, unit_id, unit_price, subtotal)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ", [$saleId, $productId, $qty, $unitId, $unitPrice, $subtotal]);
+                $oldQty = $p->stock_quantity;
+                $newQty = $oldQty - $qty;
+
+                $saleItems[] = [
+                    'sale_id' => $saleId,
+                    'product_id' => $pid,
+                    'quantity' => $qty,
+                    'unit_id' => $unitId,
+                    'unit_price' => $price,
+                    'subtotal' => $qty * $price,
+                ];
+
+                $stockMovements[] = [
+                    'product_id' => $pid,
+                    'delta' => -$qty,
+                    'old_quantity' => $oldQty,
+                    'new_quantity' => $newQty,
+                    'reason' => "Sale {$receiptNo}",
+                    'user_id' => $userId,
+                    'sale_id' => $saleId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+
+                // prepare batch update
+                $caseParts[] = "WHEN {$pid} THEN stock_quantity - {$qty}";
+                $ids[] = $pid;
             }
 
-            $saleData = DB::selectOne("
-                SELECT s.*, u.name AS cashier_name, c.name AS customer_name
-                FROM pos_sales s
-                LEFT JOIN usr_users u ON s.user_id = u.id
-                LEFT JOIN pos_customers c ON s.customer_id = c.id
-                WHERE s.id = ?
-            ", [$saleId]);
+            // ✅ Batch update all stock in one SQL
+            if ($ids) {
+                $sql = sprintf(
+                    "UPDATE inv_products SET stock_quantity = CASE id %s END, updated_at = NOW() WHERE id IN (%s)",
+                    implode(' ', $caseParts),
+                    implode(',', $ids)
+                );
+                DB::statement($sql);
+            }
 
-            $items = DB::select("
-                SELECT si.*, p.name AS product_name, pu.name AS unit_name
-                FROM pos_sale_items si
-                LEFT JOIN inv_products p ON si.product_id = p.id
-                LEFT JOIN inv_product_units pu ON si.unit_id = pu.id
-                WHERE si.sale_id = ?
-            ", [$saleId]);
+            // ✅ Insert in bulk
+            DB::table('pos_sale_items')->insert($saleItems);
+            DB::table('inv_stock_movements')->insert($stockMovements);
 
-            return response()->json(['status' => 'success', 'data' => ['sale_id' => $saleId, 'sale' => $saleData, 'items' => $items]]);
-        }, 5);
+            $elapsed = round((microtime(true) - $start) * 1000, 2);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Sale processed in {$elapsed}ms",
+                'data' => [
+                    'sale_id' => $saleId,
+                    'receipt_no' => $receiptNo,
+                    'total_amount' => $total
+                ]
+            ]);
+        }, 3);
+
+    } catch (Exception $e) {
+        Log::error('Sale creation failed', ['error' => $e->getMessage()]);
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Sale creation failed: ' . $e->getMessage(),
+        ], 500);
     }
-
+}
 
 
     // Refund sale

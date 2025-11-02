@@ -31,7 +31,7 @@ Route::prefix('sales')->group(function () {
     Route::get('/{id}', [SalesController::class, 'show']);
     Route::get('/details/{id}', [SalesController::class, 'getSaleDetails']); 
     Route::get('/{id}/items', [SalesController::class, 'getSaleDetails']); 
-    Route::post('/', [SalesController::class, 'onCreateSale']);
+    Route::post('/onCreateSale', [SalesController::class, 'onCreateSale']);
     Route::delete('/{id}/refund', [SalesController::class, 'refund']);
     Route::get('/reports/daily', [SalesController::class, 'dailyReport']);
     Route::get('/reports/monthly', [SalesController::class, 'monthlyReport']);
